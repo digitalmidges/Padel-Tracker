@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Padel Tracker">
+    <title>Padel Tournament Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Inner tournament</p>
+          <h1>Padel Tracker</h1>
+        </div>
+        <nav class="tabs" aria-label="Main sections">
+          <button class="tab is-active" type="button" data-view="match">Match</button>
+          <button class="tab" type="button" data-view="history">History</button>
+          <button class="tab" type="button" data-view="players">Players</button>
+        </nav>
+      </header>
+
+      <section class="view is-active" id="match-view">
+        <div class="match-layout">
+          <section class="score-entry" aria-labelledby="score-entry-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Submit result</p>
+                <h2 id="score-entry-title">New Match</h2>
+              </div>
+              <button class="ghost-button" id="clear-match" type="button">Clear</button>
+            </div>
+
+            <div class="teams">
+              <article class="team-panel team-a">
+                <div class="team-title">
+                  <span>Team A</span>
+                  <input id="score-a" class="score-input" type="number" min="0" max="32" inputmode="numeric" aria-label="Team A score" placeholder="0">
+                </div>
+                <div class="player-slots" data-team="a">
+                  <button class="player-slot" type="button" data-slot="a1">Pick player</button>
+                  <button class="player-slot" type="button" data-slot="a2">Pick player</button>
+                </div>
+              </article>
+
+              <article class="team-panel team-b">
+                <div class="team-title">
+                  <span>Team B</span>
+                  <input id="score-b" class="score-input" type="number" min="0" max="32" inputmode="numeric" aria-label="Team B score" placeholder="0">
+                </div>
+                <div class="player-slots" data-team="b">
+                  <button class="player-slot" type="button" data-slot="b1">Pick player</button>
+                  <button class="player-slot" type="button" data-slot="b2">Pick player</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="score-helper">
+              <span id="score-status">Enter one score and the other side completes to 32.</span>
+              <div class="score-presets" aria-label="Quick scores">
+                <button type="button" data-score="16">16-16</button>
+                <button type="button" data-score="18">18-14</button>
+                <button type="button" data-score="20">20-12</button>
+                <button type="button" data-score="24">24-8</button>
+                <button type="button" data-score="32">32-0</button>
+              </div>
+            </div>
+
+            <button id="save-match" class="primary-button" type="button">Save Match</button>
+          </section>
+
+          <aside class="recent-panel" aria-labelledby="recent-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Live log</p>
+                <h2 id="recent-title">Recent Matches</h2>
+              </div>
+              <span class="counter" id="match-count">0</span>
+            </div>
+            <ol class="match-list" id="match-list"></ol>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="history-view">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Game history</p>
+            <h2>All Games</h2>
+          </div>
+          <span class="counter" id="history-count">0</span>
+        </div>
+        <ol class="history-list" id="history-list"></ol>
+      </section>
+
+      <section class="view" id="players-view">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Roster</p>
+            <h2>Players</h2>
+          </div>
+          <button class="primary-button compact" id="add-player" type="button">Add Player</button>
+        </div>
+        <div class="player-grid" id="player-grid"></div>
+      </section>
+
+      <section class="view" id="admin-view">
+        <div class="admin-gate" id="admin-gate">
+          <div>
+            <p class="eyebrow">Admin only</p>
+            <h2>Generate Tournament Data</h2>
+            <p class="subtle">Use the admin passcode to view rankings, pair chemistry, anchors, and exports.</p>
+          </div>
+          <form class="unlock-form" id="unlock-form">
+            <input id="admin-code" type="password" inputmode="numeric" autocomplete="off" placeholder="Passcode" aria-label="Admin passcode">
+            <button class="primary-button compact" type="submit">Unlock</button>
+          </form>
+          <p class="form-note">Default passcode: 2468</p>
+        </div>
+
+        <div class="admin-dashboard" id="admin-dashboard" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Analysis</p>
+              <h2>Tournament Results</h2>
+            </div>
+            <div class="button-row">
+              <button class="ghost-button" id="export-json" type="button">JSON</button>
+              <button class="ghost-button" id="export-csv" type="button">CSV</button>
+              <button class="ghost-button danger" id="reset-matches" type="button">Reset Matches</button>
+              <button class="ghost-button" id="back-public" type="button">Public App</button>
+              <button class="ghost-button" id="lock-admin" type="button">Lock</button>
+            </div>
+          </div>
+
+          <div class="insights" id="insights"></div>
+          <section class="admin-games" aria-labelledby="admin-games-title">
+            <div class="section-heading tight">
+              <div>
+                <p class="eyebrow">Admin games</p>
+                <h3 id="admin-games-title">Edit Scores</h3>
+              </div>
+              <span class="counter" id="admin-match-count">0</span>
+            </div>
+            <ol class="admin-match-list" id="admin-match-list"></ol>
+          </section>
+          <div class="tables">
+            <section>
+              <h3>Players</h3>
+              <div class="table-wrap">
+                <table class="player-stats-table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Player</th>
+                      <th>Games</th>
+                      <th>Wins</th>
+                      <th>Points</th>
+                      <th>Diff</th>
+                    </tr>
+                  </thead>
+                  <tbody id="player-stats"></tbody>
+                </table>
+              </div>
+            </section>
+            <section>
+              <h3>Couples</h3>
+              <div class="table-wrap">
+                <table class="pair-stats-table">
+                  <thead>
+                    <tr>
+                      <th>Couple</th>
+                      <th>Games</th>
+                      <th>Wins</th>
+                      <th>Diff</th>
+                      <th>Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pair-stats"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="player-picker" class="picker-dialog">
+      <div class="picker-header">
+        <div>
+          <p class="eyebrow">Choose player</p>
+          <h2 id="picker-title">Select</h2>
+        </div>
+        <button class="icon-button" id="close-picker" type="button" aria-label="Close">x</button>
+      </div>
+      <div class="picker-grid" id="picker-grid"></div>
+    </dialog>
+
+    <dialog id="player-editor" class="editor-dialog">
+      <form method="dialog" id="player-form">
+        <div class="picker-header">
+          <div>
+            <p class="eyebrow">Roster</p>
+            <h2 id="player-form-title">Player</h2>
+          </div>
+          <button class="icon-button" id="close-player-editor" type="button" aria-label="Close">x</button>
+        </div>
+        <label>
+          Name
+          <input id="player-name" required maxlength="32" autocomplete="off">
+        </label>
+        <label>
+          Photo URL or local path
+          <input id="player-photo" placeholder="images/daniel.jpg">
+        </label>
+        <label>
+          Take or upload photo on this phone
+          <input id="player-photo-file" type="file" accept="image/*" capture="environment">
+        </label>
+        <div class="button-row end">
+          <button class="ghost-button danger" id="delete-player" type="button">Delete</button>
+          <button class="primary-button compact" value="default" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="score-editor" class="editor-dialog">
+      <form method="dialog" id="score-form">
+        <div class="picker-header">
+          <div>
+            <p class="eyebrow">Admin edit</p>
+            <h2>Edit Score</h2>
+          </div>
+          <button class="icon-button" id="close-score-editor" type="button" aria-label="Close">x</button>
+        </div>
+        <p class="subtle" id="score-edit-match"></p>
+        <div class="edit-score-grid">
+          <label>
+            Team A
+            <input id="edit-score-a" type="number" min="0" max="32" inputmode="numeric" required>
+          </label>
+          <label>
+            Team B
+            <input id="edit-score-b" type="number" min="0" max="32" inputmode="numeric" required>
+          </label>
+        </div>
+        <p class="form-note" id="edit-score-note">Scores must add up to 32.</p>
+        <div class="button-row end">
+          <button class="primary-button compact" value="default" type="submit">Save Score</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="delete-confirm" class="editor-dialog">
+      <div class="picker-header">
+        <div>
+          <p class="eyebrow">Admin delete</p>
+          <h2>Delete Game</h2>
+        </div>
+        <button class="icon-button" id="close-delete-confirm" type="button" aria-label="Close">x</button>
+      </div>
+      <p class="subtle" id="delete-confirm-text"></p>
+      <div class="button-row end dialog-actions">
+        <button class="ghost-button" id="cancel-delete-match" type="button">Cancel</button>
+        <button class="ghost-button danger" id="confirm-delete-match" type="button">Delete Game</button>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
