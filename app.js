@@ -1,7 +1,8 @@
-import { firebaseConfig, firebaseOptions } from "./firebase-config.js";
+import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260611-firebase-live";
 
 const STORAGE_KEY = "padel-tracker-state-v1";
 const ADMIN_CODE = "2468";
+const REMOTE_POLL_INTERVAL = 2500;
 
 const defaultPlayerNames = [
   "איתי",
@@ -55,14 +56,16 @@ let state = loadState();
 let selectedSlot = null;
 let editingMatchId = null;
 let pendingDeleteMatchId = null;
-let remoteRef = null;
+let remoteReady = false;
 let remoteSaveTimer = null;
 let remotePlayerSaveTimer = null;
+let remotePollTimer = null;
 let applyingRemoteState = false;
 const pendingMatchIds = new Set();
 
 const els = {
   appTitle: document.querySelector("#app-title"),
+  syncStatus: document.querySelector("#sync-status"),
   tabs: document.querySelectorAll(".tab"),
   views: document.querySelectorAll(".view"),
   slots: document.querySelectorAll(".player-slot"),
@@ -133,7 +136,7 @@ function saveState() {
 
 function saveSharedState() {
   saveState();
-  scheduleRemoteSave();
+  scheduleRemoteTournamentSave();
 }
 
 function savePlayersSharedState() {
@@ -167,8 +170,7 @@ function normalizeDraft(draft = {}) {
 
 function remotePayload() {
   return {
-    players: state.players,
-    matches: state.matches
+    players: state.players
   };
 }
 
@@ -181,118 +183,257 @@ function hasFirebaseConfig() {
   );
 }
 
-function scheduleRemoteSave() {
-  if (!remoteRef || applyingRemoteState) return;
+function setSyncStatus(status, message) {
+  if (!els.syncStatus) return;
 
+  els.syncStatus.textContent = message;
+  els.syncStatus.dataset.status = status;
+}
+
+function remoteDocumentUrl(...segments) {
+  const tournamentId = firebaseOptions.tournamentId || "main";
+  const path = ["tournaments", tournamentId, ...segments].map(encodeURIComponent).join("/");
+  return `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/${path}?key=${firebaseConfig.apiKey}`;
+}
+
+async function remoteRequest(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      }
+    });
+
+    if (response.status === 404) return null;
+
+    const text = await response.text();
+    const body = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      const message = body?.error?.message || `Firestore request failed (${response.status})`;
+      throw new Error(message);
+    }
+
+    return body;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function toFirestoreValue(value) {
+  if (Array.isArray(value)) {
+    return {
+      arrayValue: {
+        values: value.map(toFirestoreValue)
+      }
+    };
+  }
+
+  if (value && typeof value === "object") {
+    return {
+      mapValue: {
+        fields: Object.fromEntries(Object.entries(value).map(([key, nestedValue]) => [key, toFirestoreValue(nestedValue)]))
+      }
+    };
+  }
+
+  if (typeof value === "boolean") return { booleanValue: value };
+  if (typeof value === "number") return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  if (value === null || value === undefined) return { nullValue: null };
+  return { stringValue: String(value) };
+}
+
+function fromFirestoreValue(value) {
+  if (!value) return null;
+  if ("stringValue" in value) return value.stringValue;
+  if ("integerValue" in value) return Number(value.integerValue);
+  if ("doubleValue" in value) return Number(value.doubleValue);
+  if ("booleanValue" in value) return value.booleanValue;
+  if ("nullValue" in value) return null;
+  if ("arrayValue" in value) return (value.arrayValue.values || []).map(fromFirestoreValue);
+  if ("mapValue" in value) {
+    return Object.fromEntries(Object.entries(value.mapValue.fields || {}).map(([key, nestedValue]) => [key, fromFirestoreValue(nestedValue)]));
+  }
+  return null;
+}
+
+function fromFirestoreDocument(document) {
+  return Object.fromEntries(Object.entries(document?.fields || {}).map(([key, value]) => [key, fromFirestoreValue(value)]));
+}
+
+function toFirestoreDocument(data) {
+  return {
+    fields: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, toFirestoreValue(value)]))
+  };
+}
+
+function scheduleRemoteTournamentSave() {
+  if (!remoteReady || applyingRemoteState) return;
+
+  setSyncStatus("syncing", "Syncing");
   window.clearTimeout(remoteSaveTimer);
   remoteSaveTimer = window.setTimeout(async () => {
     try {
-      const { setDoc, serverTimestamp } = await firebaseModules();
-      await setDoc(remoteRef, {
+      await saveTournamentRemote({
         ...remotePayload(),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+        updatedAt: new Date().toISOString()
+      });
+      setSyncStatus("synced", "Synced");
     } catch (error) {
       console.error("Could not sync tournament state", error);
+      setSyncStatus("error", "Sync error");
       toast("Could not sync. Saved on this phone.");
     }
   }, 250);
 }
 
 function schedulePlayersRemoteSave() {
-  if (!remoteRef || applyingRemoteState) return;
+  if (!remoteReady || applyingRemoteState) return;
 
+  setSyncStatus("syncing", "Syncing");
   window.clearTimeout(remotePlayerSaveTimer);
   remotePlayerSaveTimer = window.setTimeout(async () => {
     try {
-      const { setDoc, serverTimestamp } = await firebaseModules();
-      await setDoc(remoteRef, {
+      await saveTournamentRemote({
         players: state.players,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+        updatedAt: new Date().toISOString()
+      });
+      setSyncStatus("synced", "Synced");
     } catch (error) {
       console.error("Could not sync playing roster", error);
+      setSyncStatus("error", "Sync error");
       toast("Could not sync players. Saved on this phone.");
     }
   }, 250);
 }
 
-let firebaseModulePromise = null;
-function firebaseModules() {
-  if (!firebaseModulePromise) {
-    firebaseModulePromise = Promise.all([
-      import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js"),
-      import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js")
-    ]).then(([appModule, firestoreModule]) => ({
-      ...appModule,
-      ...firestoreModule
-    }));
-  }
-
-  return firebaseModulePromise;
+async function saveTournamentRemote(data) {
+  await remoteRequest(remoteDocumentUrl(), {
+    method: "PATCH",
+    body: JSON.stringify(toFirestoreDocument(data))
+  });
 }
 
 async function saveMatchRemote(match) {
-  if (!remoteRef || applyingRemoteState) return;
+  if (!remoteReady || applyingRemoteState) return;
 
+  setSyncStatus("syncing", "Syncing");
   try {
-    const { arrayUnion, setDoc, serverTimestamp } = await firebaseModules();
-    await setDoc(remoteRef, {
-      players: state.players,
-      matches: arrayUnion(match),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+    await remoteRequest(remoteDocumentUrl("matches", match.id), {
+      method: "PATCH",
+      body: JSON.stringify(toFirestoreDocument(match))
+    });
+    setSyncStatus("synced", "Synced");
   } catch (error) {
     console.error("Could not sync match", error);
+    setSyncStatus("error", "Sync error");
     toast("Could not sync. Saved on this phone.");
+  }
+}
+
+async function deleteMatchRemote(matchId) {
+  if (!remoteReady || applyingRemoteState) return;
+
+  setSyncStatus("syncing", "Syncing");
+  try {
+    await remoteRequest(remoteDocumentUrl("matches", matchId), {
+      method: "DELETE"
+    });
+    setSyncStatus("synced", "Synced");
+  } catch (error) {
+    console.error("Could not delete remote match", error);
+    setSyncStatus("error", "Sync error");
+    toast("Could not sync delete. Removed on this phone.");
+  }
+}
+
+async function resetRemoteMatches(matchIds) {
+  if (!remoteReady || applyingRemoteState) return;
+
+  setSyncStatus("syncing", "Syncing");
+  try {
+    await Promise.all(matchIds.map((matchId) => remoteRequest(remoteDocumentUrl("matches", matchId), {
+      method: "DELETE"
+    })));
+    setSyncStatus("synced", "Synced");
+  } catch (error) {
+    console.error("Could not reset remote matches", error);
+    setSyncStatus("error", "Sync error");
+    toast("Could not sync reset. Cleared on this phone.");
   }
 }
 
 async function initRemoteSync() {
   if (!hasFirebaseConfig()) {
     console.info("Firebase is disabled. Using local browser storage.");
+    setSyncStatus("local", "Local only");
     return;
   }
 
   try {
-    const { initializeApp, getFirestore, doc, onSnapshot, setDoc, serverTimestamp } = await firebaseModules();
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const tournamentId = firebaseOptions.tournamentId || "main";
-    remoteRef = doc(db, "tournaments", tournamentId);
-
-    onSnapshot(remoteRef, async (snapshot) => {
-      if (!snapshot.exists()) {
-        await setDoc(remoteRef, {
-          ...remotePayload(),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        return;
-      }
-
-      applyingRemoteState = true;
-      const localDraft = state.draft;
-      const remoteState = normalizeState(snapshot.data());
-      const remoteMatchIds = new Set(remoteState.matches.map((match) => match.id));
-      const unsyncedMatches = state.matches.filter((match) => pendingMatchIds.has(match.id) && !remoteMatchIds.has(match.id));
-      remoteMatchIds.forEach((id) => pendingMatchIds.delete(id));
-      remoteState.matches = [...remoteState.matches, ...unsyncedMatches];
-      state = {
-        ...remoteState,
-        draft: localDraft
-      };
-      clearInactiveDraftPlayers();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      renderAll();
-      applyingRemoteState = false;
-    }, (error) => {
-      console.error("Could not connect shared tournament state", error);
-      toast("Shared sync is offline");
-    });
+    setSyncStatus("syncing", "Connecting");
+    remoteReady = true;
+    await pullRemoteState({ createIfMissing: true });
+    remotePollTimer = window.setInterval(() => pullRemoteState(), REMOTE_POLL_INTERVAL);
   } catch (error) {
     console.error("Could not start Firebase sync", error);
+    setSyncStatus("error", "Sync error");
     toast("Shared sync is not configured");
+  }
+}
+
+async function pullRemoteState(options = {}) {
+  if (!remoteReady) return;
+
+  try {
+    const tournamentDocument = await remoteRequest(remoteDocumentUrl());
+    if (!tournamentDocument) {
+      if (options.createIfMissing) {
+        await saveTournamentRemote({
+          ...remotePayload(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+      setSyncStatus("synced", "Synced");
+      return;
+    }
+
+    const matchesDocument = await remoteRequest(`${remoteDocumentUrl("matches")}&pageSize=100`);
+    const remoteData = fromFirestoreDocument(tournamentDocument);
+    const remoteMatches = (matchesDocument?.documents || [])
+      .map(fromFirestoreDocument)
+      .filter((match) => match.id)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    applyingRemoteState = true;
+    const localDraft = state.draft;
+    const remoteState = normalizeState({
+      players: remoteData.players,
+      matches: remoteMatches
+    });
+    const remoteMatchIds = new Set(remoteState.matches.map((match) => match.id));
+    const unsyncedMatches = state.matches.filter((match) => pendingMatchIds.has(match.id) && !remoteMatchIds.has(match.id));
+    remoteMatchIds.forEach((id) => pendingMatchIds.delete(id));
+    remoteState.matches = [...remoteState.matches, ...unsyncedMatches];
+    state = {
+      ...remoteState,
+      draft: localDraft
+    };
+    clearInactiveDraftPlayers();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderAll();
+    setSyncStatus("synced", "Synced");
+    applyingRemoteState = false;
+  } catch (error) {
+    applyingRemoteState = false;
+    console.error("Could not pull remote tournament state", error);
+    setSyncStatus("error", "Sync error");
   }
 }
 
@@ -917,7 +1058,8 @@ function saveEditedScore() {
 
   match.scoreA = scoreA;
   match.scoreB = scoreB;
-  saveSharedState();
+  saveState();
+  saveMatchRemote(match);
   els.scoreEditor.close();
   editingMatchId = null;
   renderAll();
@@ -941,9 +1083,11 @@ function closeDeleteConfirm() {
 function deletePendingMatch() {
   if (!pendingDeleteMatchId) return;
 
+  const deletedMatchId = pendingDeleteMatchId;
   state.matches = state.matches.filter((item) => item.id !== pendingDeleteMatchId);
   pendingDeleteMatchId = null;
-  saveSharedState();
+  saveState();
+  deleteMatchRemote(deletedMatchId);
   els.deleteConfirm.close();
   renderAll();
   toast("Game deleted");
@@ -1104,9 +1248,11 @@ els.lockAdmin.addEventListener("click", () => {
 els.exportJson.addEventListener("click", () => exportData("json"));
 els.exportCsv.addEventListener("click", () => exportData("csv"));
 els.resetMatches.addEventListener("click", () => {
+  const matchIds = state.matches.map((match) => match.id);
   state.matches = [];
   state.draft = emptyDraft();
-  saveSharedState();
+  saveState();
+  resetRemoteMatches(matchIds);
   renderAll();
   toast("Matches reset");
 });
