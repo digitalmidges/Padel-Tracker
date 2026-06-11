@@ -12,6 +12,7 @@ const defaultPlayerNames = [
   "סמסון",
   "קובי",
   "פרידמן",
+  "אלירן",
   "אמיר",
   "שחר"
 ];
@@ -23,8 +24,9 @@ const defaultPlayerPhotos = {
   "אמרי": "images/imri.png",
   "בן": "images/ben.png",
   "סמסון": "images/samson.jpg",
-  "קובי": "images/kobi.png",
-  "פרידמן": "images/fridman.jpg",
+  "קובי": "images/kobi.jpeg",
+  "פרידמן": "images/fridman.jpeg",
+  "אלירן": "images/eliran.jpeg",
   "אמיר": "images/amir.jpg",
   "שחר": "images/shahar.png"
 };
@@ -138,7 +140,7 @@ function normalizeState(input = {}) {
     players: isLegacyRoster && !savedMatches.length
       ? defaultPlayers
       : savedPlayers.length
-        ? hydrateBundledPhotos(savedPlayers)
+        ? syncBundledRoster(savedPlayers)
         : defaultPlayers,
     matches: savedMatches,
     draft: normalizeDraft(input.draft)
@@ -246,6 +248,21 @@ function hydrateBundledPhotos(players) {
     photo: defaultPlayerPhotos[player.name] || player.photo || "",
     playing: typeof player.playing === "boolean" ? player.playing : true
   }));
+}
+
+function syncBundledRoster(players) {
+  const hydratedPlayers = hydrateBundledPhotos(players);
+  const existingNames = new Set(hydratedPlayers.map((player) => player.name));
+  const missingPlayers = defaultPlayerNames
+    .filter((name) => !existingNames.has(name))
+    .map((name) => ({
+      id: crypto.randomUUID(),
+      name,
+      photo: defaultPlayerPhotos[name] || "",
+      playing: true
+    }));
+
+  return [...hydratedPlayers, ...missingPlayers];
 }
 
 function emptyDraft() {
