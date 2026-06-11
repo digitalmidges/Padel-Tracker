@@ -658,6 +658,8 @@ function renderGeneratedMatches() {
     const historyText = suggestion.historyCount === 0
       ? "Brand new game"
       : `Played ${suggestion.historyCount} time${suggestion.historyCount === 1 ? "" : "s"} before`;
+    const teamAHistory = pairHistoryLabel(suggestion.teamA);
+    const teamBHistory = pairHistoryLabel(suggestion.teamB);
     card.innerHTML = `
       <div class="generated-match-topline">
         <span>Court ${index + 1}</span>
@@ -667,10 +669,12 @@ function renderGeneratedMatches() {
         <div>
           <small>Team A</small>
           <strong>${teamLabel(suggestion.teamA)}</strong>
+          <span>${teamAHistory}</span>
         </div>
         <div>
           <small>Team B</small>
           <strong>${teamLabel(suggestion.teamB)}</strong>
+          <span>${teamBHistory}</span>
         </div>
       </div>
       <button class="ghost-button compact" type="button" data-suggestion="${index}">Use this match</button>
@@ -740,6 +744,18 @@ function possibleMatchups(playerIds) {
 function matchupHistoryCount(teamA, teamB) {
   const key = matchupKey(teamA, teamB);
   return state.matches.filter((match) => matchupKey(match.teamA, match.teamB) === key).length;
+}
+
+function pairHistoryCount(team) {
+  const key = pairKey(team);
+  return state.matches.filter((match) => pairKey(match.teamA) === key || pairKey(match.teamB) === key).length;
+}
+
+function pairHistoryLabel(team) {
+  const count = pairHistoryCount(team);
+  return count === 0
+    ? "Never played together"
+    : `Played together ${count} time${count === 1 ? "" : "s"}`;
 }
 
 function matchupKey(teamA, teamB) {

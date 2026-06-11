@@ -574,6 +574,12 @@ h3 {
   font-size: 0.94rem;
 }
 
+.generated-teams span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
 .ghost-button.compact {
   min-height: 36px;
 }
