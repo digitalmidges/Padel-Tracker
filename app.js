@@ -59,6 +59,7 @@ let remoteSaveTimer = null;
 let remotePlayerSaveTimer = null;
 let remotePollTimer = null;
 let applyingRemoteState = false;
+let lastRemoteSignature = "";
 const pendingMatchIds = new Set();
 let generatorGameCount = 1;
 let generatorAvailableIds = null;
@@ -420,14 +421,23 @@ async function pullRemoteState(options = {}) {
       .filter((match) => match.id)
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-    applyingRemoteState = true;
-    const localDraft = state.draft;
     const remoteState = normalizeState({
       players: remoteData.players,
       matches: remoteMatches
     });
     const remoteMatchIds = new Set(remoteState.matches.map((match) => match.id));
+    const remoteSignature = JSON.stringify({
+      players: remoteState.players.map(({ id, name, photo, playing }) => ({ id, name, photo, playing })),
+      matches: remoteState.matches
+    });
     const unsyncedMatches = state.matches.filter((match) => pendingMatchIds.has(match.id) && !remoteMatchIds.has(match.id));
+    if (remoteSignature === lastRemoteSignature && !unsyncedMatches.length) {
+      setSyncStatus("synced", "Synced");
+      return;
+    }
+
+    applyingRemoteState = true;
+    const localDraft = state.draft;
     remoteMatchIds.forEach((id) => pendingMatchIds.delete(id));
     remoteState.matches = [...remoteState.matches, ...unsyncedMatches];
     state = {
@@ -437,6 +447,7 @@ async function pullRemoteState(options = {}) {
     clearInactiveDraftPlayers();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     renderAll();
+    lastRemoteSignature = remoteSignature;
     setSyncStatus("synced", "Synced");
     applyingRemoteState = false;
   } catch (error) {
@@ -658,30 +669,60 @@ function renderGeneratedMatches() {
     const historyText = suggestion.historyCount === 0
       ? "Brand new game"
       : `Played ${suggestion.historyCount} time${suggestion.historyCount === 1 ? "" : "s"} before`;
-    const teamAHistory = pairHistoryLabel(suggestion.teamA);
-    const teamBHistory = pairHistoryLabel(suggestion.teamB);
-    card.innerHTML = `
-      <div class="generated-match-topline">
-        <span>Court ${index + 1}</span>
-        <strong>${historyText}</strong>
-      </div>
-      <div class="generated-teams">
-        <div>
-          <small>Team A</small>
-          <strong>${teamLabel(suggestion.teamA)}</strong>
-          <span>${teamAHistory}</span>
-        </div>
-        <div>
-          <small>Team B</small>
-          <strong>${teamLabel(suggestion.teamB)}</strong>
-          <span>${teamBHistory}</span>
-        </div>
-      </div>
-      <button class="ghost-button compact" type="button" data-suggestion="${index}">Use this match</button>
-    `;
-    card.querySelector("button").addEventListener("click", () => useGeneratedMatch(index));
+
+    const topline = document.createElement("div");
+    topline.className = "generated-match-topline";
+    const court = document.createElement("span");
+    court.textContent = `Court ${index + 1}`;
+    const history = document.createElement("strong");
+    history.textContent = historyText;
+    topline.append(court, history);
+
+    const teams = document.createElement("div");
+    teams.className = "generated-teams";
+    teams.append(generatedTeamBlock("Team A", suggestion.teamA), generatedTeamBlock("Team B", suggestion.teamB));
+
+    const useButton = document.createElement("button");
+    useButton.className = "ghost-button compact";
+    useButton.type = "button";
+    useButton.dataset.suggestion = String(index);
+    useButton.textContent = "Use this match";
+    useButton.addEventListener("click", () => useGeneratedMatch(index));
+
+    card.append(topline, teams, useButton);
     els.generatedMatches.append(card);
   });
+}
+
+function generatedTeamBlock(label, team) {
+  const block = document.createElement("div");
+  block.className = "generated-team";
+
+  const title = document.createElement("small");
+  title.textContent = label;
+
+  const players = document.createElement("div");
+  players.className = "generated-player-row";
+  team.forEach((id) => {
+    const player = playerById(id);
+    const playerCard = document.createElement("span");
+    playerCard.className = "generated-player-card";
+    if (player) {
+      const name = document.createElement("strong");
+      name.textContent = firstName(player.name);
+      playerCard.append(avatar(player), name);
+    } else {
+      playerCard.textContent = "Unknown";
+    }
+    players.append(playerCard);
+  });
+
+  const pairHistory = document.createElement("span");
+  pairHistory.className = "generated-pair-history";
+  pairHistory.textContent = pairHistoryLabel(team);
+
+  block.append(title, players, pairHistory);
+  return block;
 }
 
 function generateRandomMatches() {

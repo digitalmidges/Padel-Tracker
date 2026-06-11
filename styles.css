@@ -556,28 +556,56 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.generated-teams div {
+.generated-team {
   display: grid;
-  gap: 3px;
+  gap: 8px;
   min-width: 0;
 }
 
-.generated-teams small {
+.generated-team small {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.generated-teams strong {
-  overflow-wrap: anywhere;
-  font-size: 0.94rem;
+.generated-player-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.generated-teams span {
+.generated-player-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9faf7;
+  color: rgba(25, 32, 42, 0.86);
+  text-align: center;
+}
+
+.generated-player-card .avatar {
+  width: 58px;
+  height: 58px;
+}
+
+.generated-player-card strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  font-weight: 950;
+  line-height: 1.05;
+}
+
+.generated-pair-history {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 850;
+  text-align: center;
 }
 
 .ghost-button.compact {
