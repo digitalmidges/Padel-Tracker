@@ -15,7 +15,7 @@ const defaultPlayerNames = [
 ];
 
 const defaultPlayerPhotos = {
-  "איתי": "images/itai.jpg",
+  "איתי": "images/itay.jpg",
   "עודד": "images/oded.jpg",
   "ניראל": "images/nirel.jpg",
   "אמרי": "images/imri.jpg",
