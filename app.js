@@ -57,7 +57,9 @@ let editingMatchId = null;
 let pendingDeleteMatchId = null;
 let remoteRef = null;
 let remoteSaveTimer = null;
+let remotePlayerSaveTimer = null;
 let applyingRemoteState = false;
+const pendingMatchIds = new Set();
 
 const els = {
   appTitle: document.querySelector("#app-title"),
@@ -127,7 +129,16 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function saveSharedState() {
+  saveState();
   scheduleRemoteSave();
+}
+
+function savePlayersSharedState() {
+  saveState();
+  schedulePlayersRemoteSave();
 }
 
 function normalizeState(input = {}) {
@@ -157,8 +168,7 @@ function normalizeDraft(draft = {}) {
 function remotePayload() {
   return {
     players: state.players,
-    matches: state.matches,
-    draft: state.draft
+    matches: state.matches
   };
 }
 
@@ -189,6 +199,24 @@ function scheduleRemoteSave() {
   }, 250);
 }
 
+function schedulePlayersRemoteSave() {
+  if (!remoteRef || applyingRemoteState) return;
+
+  window.clearTimeout(remotePlayerSaveTimer);
+  remotePlayerSaveTimer = window.setTimeout(async () => {
+    try {
+      const { setDoc, serverTimestamp } = await firebaseModules();
+      await setDoc(remoteRef, {
+        players: state.players,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      console.error("Could not sync playing roster", error);
+      toast("Could not sync players. Saved on this phone.");
+    }
+  }, 250);
+}
+
 let firebaseModulePromise = null;
 function firebaseModules() {
   if (!firebaseModulePromise) {
@@ -202,6 +230,22 @@ function firebaseModules() {
   }
 
   return firebaseModulePromise;
+}
+
+async function saveMatchRemote(match) {
+  if (!remoteRef || applyingRemoteState) return;
+
+  try {
+    const { arrayUnion, setDoc, serverTimestamp } = await firebaseModules();
+    await setDoc(remoteRef, {
+      players: state.players,
+      matches: arrayUnion(match),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.error("Could not sync match", error);
+    toast("Could not sync. Saved on this phone.");
+  }
 }
 
 async function initRemoteSync() {
@@ -228,7 +272,17 @@ async function initRemoteSync() {
       }
 
       applyingRemoteState = true;
-      state = normalizeState(snapshot.data());
+      const localDraft = state.draft;
+      const remoteState = normalizeState(snapshot.data());
+      const remoteMatchIds = new Set(remoteState.matches.map((match) => match.id));
+      const unsyncedMatches = state.matches.filter((match) => pendingMatchIds.has(match.id) && !remoteMatchIds.has(match.id));
+      remoteMatchIds.forEach((id) => pendingMatchIds.delete(id));
+      remoteState.matches = [...remoteState.matches, ...unsyncedMatches];
+      state = {
+        ...remoteState,
+        draft: localDraft
+      };
+      clearInactiveDraftPlayers();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       renderAll();
       applyingRemoteState = false;
@@ -240,6 +294,15 @@ async function initRemoteSync() {
     console.error("Could not start Firebase sync", error);
     toast("Shared sync is not configured");
   }
+}
+
+function clearInactiveDraftPlayers() {
+  const activeIds = new Set(state.players.filter((player) => player.playing).map((player) => player.id));
+  ["a1", "a2", "b1", "b2"].forEach((slot) => {
+    if (state.draft[slot] && !activeIds.has(state.draft[slot])) {
+      state.draft[slot] = "";
+    }
+  });
 }
 
 function hydrateBundledPhotos(players) {
@@ -403,7 +466,7 @@ function togglePlayerPlaying(playerId) {
     });
   }
 
-  saveState();
+  savePlayersSharedState();
   renderAll();
 }
 
@@ -640,7 +703,9 @@ function saveMatch() {
 
   state.matches.push(match);
   state.draft = emptyDraft();
+  pendingMatchIds.add(match.id);
   saveState();
+  saveMatchRemote(match);
   renderAll();
   toast("Match saved");
 }
@@ -852,7 +917,7 @@ function saveEditedScore() {
 
   match.scoreA = scoreA;
   match.scoreB = scoreB;
-  saveState();
+  saveSharedState();
   els.scoreEditor.close();
   editingMatchId = null;
   renderAll();
@@ -878,7 +943,7 @@ function deletePendingMatch() {
 
   state.matches = state.matches.filter((item) => item.id !== pendingDeleteMatchId);
   pendingDeleteMatchId = null;
-  saveState();
+  saveSharedState();
   els.deleteConfirm.close();
   renderAll();
   toast("Game deleted");
@@ -1041,7 +1106,7 @@ els.exportCsv.addEventListener("click", () => exportData("csv"));
 els.resetMatches.addEventListener("click", () => {
   state.matches = [];
   state.draft = emptyDraft();
-  saveState();
+  saveSharedState();
   renderAll();
   toast("Matches reset");
 });
