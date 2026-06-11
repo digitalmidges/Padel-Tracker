@@ -92,7 +92,7 @@ h3 {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(96px, 1fr));
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--line);
@@ -132,7 +132,6 @@ h3 {
 .recent-panel,
 .admin-gate,
 .admin-dashboard,
-#players-view,
 #history-view {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -144,8 +143,7 @@ h3 {
 .recent-panel,
 .admin-gate,
 .admin-dashboard,
-#history-view,
-#players-view {
+#history-view {
   padding: 18px;
 }
 
@@ -227,7 +225,6 @@ h3 {
   margin-top: 16px;
 }
 
-.player-card,
 .picker-card {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
@@ -553,11 +550,61 @@ h3 {
   gap: 12px;
 }
 
-.player-grid,
 .insights {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 12px;
+}
+
+.admin-roster {
+  margin-top: 18px;
+}
+
+.admin-player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.admin-player-card {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid rgba(28, 107, 85, 0.36);
+  border-radius: 8px;
+  background: var(--green-soft);
+  color: var(--ink);
+  text-align: left;
+}
+
+.admin-player-card.is-not-playing {
+  border-color: var(--line);
+  background: #fff;
+  opacity: 0.66;
+}
+
+.admin-player-card .avatar {
+  width: 52px;
+  height: 52px;
+}
+
+.playing-toggle {
+  min-width: 78px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 950;
+  text-align: center;
+}
+
+.admin-player-card.is-not-playing .playing-toggle {
+  background: #d7dbd8;
+  color: var(--muted);
 }
 
 .picker-grid {
@@ -566,13 +613,16 @@ h3 {
   gap: 10px;
 }
 
-.player-card {
-  position: relative;
-  min-height: 90px;
-}
-
-.player-card button {
-  justify-self: end;
+.picker-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-weight: 850;
+  line-height: 1.4;
 }
 
 .player-name {
@@ -787,7 +837,7 @@ th {
   }
 
   .tabs {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .score-input {
@@ -831,7 +881,7 @@ th {
     bottom: 10px;
     left: 10px;
     z-index: 20;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     box-shadow: 0 10px 36px rgba(25, 32, 42, 0.2);
   }
 
@@ -848,7 +898,7 @@ th {
   .admin-gate,
   .admin-dashboard,
   #history-view,
-  #players-view {
+  .admin-roster {
     padding: 14px;
     box-shadow: none;
   }
@@ -876,11 +926,6 @@ th {
     gap: 4px;
   }
 
-  .player-card {
-    grid-template-columns: 50px minmax(0, 1fr);
-    min-height: 68px;
-  }
-
   .player-slot {
     min-height: 128px;
   }
@@ -905,8 +950,8 @@ th {
     padding: 0 6px;
   }
 
-  .player-grid,
   .insights,
+  .admin-player-grid,
   .edit-score-grid {
     grid-template-columns: 1fr;
   }

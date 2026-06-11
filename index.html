@@ -18,7 +18,6 @@
         <nav class="tabs" aria-label="Main sections">
           <button class="tab is-active" type="button" data-view="match">Match</button>
           <button class="tab" type="button" data-view="history">History</button>
-          <button class="tab" type="button" data-view="players">Players</button>
         </nav>
       </header>
 
@@ -105,17 +104,6 @@
         <ol class="history-list" id="history-list"></ol>
       </section>
 
-      <section class="view" id="players-view">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Roster</p>
-            <h2>Players</h2>
-          </div>
-          <button class="primary-button compact" id="add-player" type="button">Add Player</button>
-        </div>
-        <div class="player-grid" id="player-grid"></div>
-      </section>
-
       <section class="view" id="admin-view">
         <div class="admin-gate" id="admin-gate">
           <div>
@@ -146,6 +134,16 @@
           </div>
 
           <div class="insights" id="insights"></div>
+          <section class="admin-roster" aria-labelledby="admin-roster-title">
+            <div class="section-heading tight">
+              <div>
+                <p class="eyebrow">Roster control</p>
+                <h3 id="admin-roster-title">Who is playing?</h3>
+              </div>
+              <span class="counter" id="playing-count">0</span>
+            </div>
+            <div class="admin-player-grid" id="admin-player-grid"></div>
+          </section>
           <section class="admin-games" aria-labelledby="admin-games-title">
             <div class="section-heading tight">
               <div>
@@ -206,34 +204,6 @@
         <button class="icon-button" id="close-picker" type="button" aria-label="Close">x</button>
       </div>
       <div class="picker-grid" id="picker-grid"></div>
-    </dialog>
-
-    <dialog id="player-editor" class="editor-dialog">
-      <form method="dialog" id="player-form">
-        <div class="picker-header">
-          <div>
-            <p class="eyebrow">Roster</p>
-            <h2 id="player-form-title">Player</h2>
-          </div>
-          <button class="icon-button" id="close-player-editor" type="button" aria-label="Close">x</button>
-        </div>
-        <label>
-          Name
-          <input id="player-name" required maxlength="32" autocomplete="off">
-        </label>
-        <label>
-          Photo URL or local path
-          <input id="player-photo" placeholder="images/daniel.jpg">
-        </label>
-        <label>
-          Take or upload photo on this phone
-          <input id="player-photo-file" type="file" accept="image/*" capture="environment">
-        </label>
-        <div class="button-row end">
-          <button class="ghost-button danger" id="delete-player" type="button">Delete</button>
-          <button class="primary-button compact" value="default" type="submit">Save</button>
-        </div>
-      </form>
     </dialog>
 
     <dialog id="score-editor" class="editor-dialog">

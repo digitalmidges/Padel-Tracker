@@ -43,15 +43,14 @@ const defaultPlayers = [
 ].map((name) => ({
   id: crypto.randomUUID(),
   name,
-  photo: defaultPlayerPhotos[name] || ""
+  photo: defaultPlayerPhotos[name] || "",
+  playing: true
 }));
 
 let state = loadState();
 let selectedSlot = null;
-let editingPlayerId = null;
 let editingMatchId = null;
 let pendingDeleteMatchId = null;
-let pendingPhotoData = "";
 
 const els = {
   appTitle: document.querySelector("#app-title"),
@@ -67,20 +66,10 @@ const els = {
   matchCount: document.querySelector("#match-count"),
   historyList: document.querySelector("#history-list"),
   historyCount: document.querySelector("#history-count"),
-  playerGrid: document.querySelector("#player-grid"),
-  addPlayer: document.querySelector("#add-player"),
   picker: document.querySelector("#player-picker"),
   pickerGrid: document.querySelector("#picker-grid"),
   pickerTitle: document.querySelector("#picker-title"),
   closePicker: document.querySelector("#close-picker"),
-  playerEditor: document.querySelector("#player-editor"),
-  closePlayerEditor: document.querySelector("#close-player-editor"),
-  playerForm: document.querySelector("#player-form"),
-  playerFormTitle: document.querySelector("#player-form-title"),
-  playerName: document.querySelector("#player-name"),
-  playerPhoto: document.querySelector("#player-photo"),
-  playerPhotoFile: document.querySelector("#player-photo-file"),
-  deletePlayer: document.querySelector("#delete-player"),
   unlockForm: document.querySelector("#unlock-form"),
   adminCode: document.querySelector("#admin-code"),
   adminGate: document.querySelector("#admin-gate"),
@@ -88,6 +77,8 @@ const els = {
   insights: document.querySelector("#insights"),
   playerStats: document.querySelector("#player-stats"),
   pairStats: document.querySelector("#pair-stats"),
+  adminPlayerGrid: document.querySelector("#admin-player-grid"),
+  playingCount: document.querySelector("#playing-count"),
   adminMatchList: document.querySelector("#admin-match-list"),
   adminMatchCount: document.querySelector("#admin-match-count"),
   exportJson: document.querySelector("#export-json"),
@@ -152,7 +143,8 @@ function saveState() {
 function hydrateBundledPhotos(players) {
   return players.map((player) => ({
     ...player,
-    photo: defaultPlayerPhotos[player.name] || player.photo || ""
+    photo: defaultPlayerPhotos[player.name] || player.photo || "",
+    playing: typeof player.playing === "boolean" ? player.playing : true
   }));
 }
 
@@ -252,36 +244,66 @@ function renderMatchForm() {
   validateMatch();
 }
 
-function renderPlayers() {
-  els.playerGrid.replaceChildren();
+function renderAdminRoster() {
+  els.adminPlayerGrid.replaceChildren();
+  const playingCount = state.players.filter((player) => player.playing).length;
+  els.playingCount.textContent = `${playingCount}/${state.players.length}`;
+
   state.players.forEach((player) => {
-    const card = document.createElement("article");
-    card.className = "player-card";
+    const card = document.createElement("button");
+    card.className = "admin-player-card";
+    card.classList.toggle("is-not-playing", !player.playing);
+    card.type = "button";
+    card.setAttribute("aria-pressed", String(player.playing));
 
     const details = document.createElement("div");
     const name = document.createElement("div");
     name.className = "player-name";
-    name.textContent = player.name;
+    name.textContent = firstName(player.name);
     const meta = document.createElement("div");
     meta.className = "meta";
-    meta.textContent = player.photo ? "Photo ready" : "Initials fallback";
+    meta.textContent = player.playing ? "Active" : "Inactive";
     details.append(name, meta);
 
-    const edit = document.createElement("button");
-    edit.className = "ghost-button";
-    edit.type = "button";
-    edit.textContent = "Edit";
-    edit.addEventListener("click", () => openPlayerEditor(player.id));
+    const toggle = document.createElement("span");
+    toggle.className = "playing-toggle";
+    toggle.textContent = player.playing ? "Playing" : "Not playing";
 
-    card.append(avatar(player), details, edit);
-    els.playerGrid.append(card);
+    card.append(avatar(player), details, toggle);
+    card.addEventListener("click", () => togglePlayerPlaying(player.id));
+    els.adminPlayerGrid.append(card);
   });
+}
+
+function togglePlayerPlaying(playerId) {
+  const player = playerById(playerId);
+  if (!player) return;
+
+  player.playing = !player.playing;
+  if (!player.playing) {
+    Object.keys(state.draft).forEach((slot) => {
+      if (state.draft[slot] === playerId) state.draft[slot] = "";
+    });
+  }
+
+  saveState();
+  renderAll();
 }
 
 function renderPicker() {
   const used = new Set(["a1", "a2", "b1", "b2"].filter((slot) => slot !== selectedSlot).map((slot) => state.draft[slot]));
   els.pickerGrid.replaceChildren();
-  state.players.forEach((player) => {
+  const availablePlayers = state.players.filter((player) => player.playing);
+
+  if (!availablePlayers.length) {
+    const empty = document.createElement("p");
+    empty.className = "picker-empty";
+    empty.textContent = "No active players. Open admin and mark who is playing.";
+    els.pickerGrid.append(empty);
+    return;
+  }
+
+  availablePlayers.forEach((player) => {
     const button = document.createElement("button");
     button.className = "picker-card";
     button.type = "button";
@@ -745,42 +767,6 @@ function deletePendingMatch() {
   toast("Game deleted");
 }
 
-function openPlayerEditor(id = null) {
-  editingPlayerId = id;
-  pendingPhotoData = "";
-  const player = id ? playerById(id) : { name: "", photo: "" };
-  els.playerFormTitle.textContent = id ? "Edit Player" : "Add Player";
-  els.playerName.value = player.name;
-  els.playerPhoto.value = player.photo;
-  els.playerPhotoFile.value = "";
-  els.deletePlayer.hidden = !id;
-  els.playerEditor.showModal();
-}
-
-function imageFileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Could not read image"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Could not load image"));
-      img.onload = () => {
-        const maxSize = 640;
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-
-        const context = canvas.getContext("2d");
-        context.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.82));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function exportData(format) {
   if (format === "json") {
     download("padel-tournament.json", "application/json", JSON.stringify({
@@ -825,7 +811,7 @@ function toast(message) {
 
 function renderAll() {
   renderMatchForm();
-  renderPlayers();
+  renderAdminRoster();
   renderMatches();
   renderAdmin();
 }
@@ -880,7 +866,6 @@ els.slots.forEach((slot) => {
 });
 
 els.closePicker.addEventListener("click", () => els.picker.close());
-els.closePlayerEditor.addEventListener("click", () => els.playerEditor.close());
 els.scoreA.addEventListener("input", (event) => setScore("a", event.target.value));
 els.scoreB.addEventListener("input", (event) => setScore("b", event.target.value));
 document.querySelectorAll(".score-presets button").forEach((button) => {
@@ -888,60 +873,6 @@ document.querySelectorAll(".score-presets button").forEach((button) => {
 });
 els.flipScore.addEventListener("click", flipScore);
 els.saveMatch.addEventListener("click", saveMatch);
-els.addPlayer.addEventListener("click", () => openPlayerEditor());
-els.playerPhotoFile.addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  try {
-    pendingPhotoData = await imageFileToDataUrl(file);
-    els.playerPhoto.value = "Uploaded to this iPad";
-    toast("Photo ready");
-  } catch {
-    pendingPhotoData = "";
-    toast("Could not use that photo");
-  }
-});
-
-els.playerForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const name = els.playerName.value.trim();
-  if (!name) return;
-  const photo = pendingPhotoData || els.playerPhoto.value.trim();
-
-  if (editingPlayerId) {
-    const player = playerById(editingPlayerId);
-    player.name = name;
-    player.photo = photo;
-  } else {
-    state.players.push({
-      id: crypto.randomUUID(),
-      name,
-      photo
-    });
-  }
-
-  pendingPhotoData = "";
-  saveState();
-  els.playerEditor.close();
-  renderAll();
-});
-
-els.deletePlayer.addEventListener("click", () => {
-  const isUsed = state.matches.some((match) => [...match.teamA, ...match.teamB].includes(editingPlayerId));
-  if (isUsed) {
-    toast("Player has match history and cannot be deleted");
-    return;
-  }
-
-  state.players = state.players.filter((player) => player.id !== editingPlayerId);
-  Object.keys(state.draft).forEach((key) => {
-    if (state.draft[key] === editingPlayerId) state.draft[key] = "";
-  });
-  saveState();
-  els.playerEditor.close();
-  renderAll();
-});
 
 els.unlockForm.addEventListener("submit", (event) => {
   event.preventDefault();
