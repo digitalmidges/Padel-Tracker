@@ -24,15 +24,7 @@
 
       <section class="view is-active" id="match-view">
         <div class="match-layout">
-          <section class="score-entry" aria-labelledby="score-entry-title">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Submit result</p>
-                <h2 id="score-entry-title">New Match</h2>
-              </div>
-              <button class="ghost-button" id="clear-match" type="button">Clear</button>
-            </div>
-
+          <section class="score-entry" aria-label="Match result">
             <div class="teams">
               <article class="team-panel team-a">
                 <div class="team-title">
@@ -50,6 +42,10 @@
                   <button class="player-slot" type="button" data-slot="a2">Pick player</button>
                 </div>
               </article>
+
+              <div class="match-flip">
+                <button class="ghost-button" id="flip-score" type="button">Flip score</button>
+              </div>
 
               <article class="team-panel team-b">
                 <div class="team-title">
@@ -87,7 +83,6 @@
                 <button type="button" data-score="22">22-10</button>
                 <button type="button" data-score="24">24-8</button>
               </div>
-              <button class="ghost-button" id="flip-score" type="button">Flip score</button>
             </div>
 
             <button id="save-match" class="primary-button" type="button">Save Match</button>

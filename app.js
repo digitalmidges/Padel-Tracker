@@ -62,7 +62,6 @@ const els = {
   scoreB: document.querySelector("#score-b"),
   scoreStatus: document.querySelector("#score-status"),
   saveMatch: document.querySelector("#save-match"),
-  clearMatch: document.querySelector("#clear-match"),
   flipScore: document.querySelector("#flip-score"),
   presetTeamButtons: document.querySelectorAll("[data-preset-team]"),
   matchList: document.querySelector("#match-list"),
@@ -226,13 +225,19 @@ function renderSlot(button) {
   button.replaceChildren();
 
   if (!player) {
-    button.textContent = "Pick player";
+    button.classList.remove("has-player");
+    button.setAttribute("aria-label", "Pick player");
+    button.innerHTML = `
+      <span class="plus-mark" aria-hidden="true">+</span>
+    `;
     return;
   }
 
   const text = document.createElement("span");
-  text.className = "player-name";
-  text.textContent = player.name;
+  button.classList.add("has-player");
+  button.setAttribute("aria-label", player.name);
+  text.className = "slot-player-name";
+  text.textContent = firstName(player.name);
   button.append(avatar(player), text);
 }
 
@@ -849,11 +854,6 @@ document.querySelectorAll(".score-presets button").forEach((button) => {
   button.addEventListener("click", () => applyPreset(button.dataset.score));
 });
 els.flipScore.addEventListener("click", flipScore);
-els.clearMatch.addEventListener("click", () => {
-  state.draft = emptyDraft();
-  saveState();
-  renderAll();
-});
 els.saveMatch.addEventListener("click", saveMatch);
 els.addPlayer.addEventListener("click", () => openPlayerEditor());
 els.playerPhotoFile.addEventListener("change", async (event) => {
