@@ -860,22 +860,54 @@ function stats() {
       games: 0,
       wins: 0,
       draws: 0,
+      losses: 0,
       pointsFor: 0,
       pointsAgainst: 0,
-      diff: 0
+      diff: 0,
+      closeGames: 0,
+      closeWins: 0,
+      blowoutWins: 0,
+      partnerIds: new Set(),
+      opponentIds: new Set()
     });
   });
 
   const pairStats = new Map();
+  const summary = {
+    games: state.matches.length,
+    closeGames: 0,
+    draws: 0,
+    decisiveGames: 0,
+    totalMargin: 0,
+    totalPoints: 0,
+    biggestWin: null,
+    closestGame: null
+  };
 
   state.matches.forEach((match) => {
-    applyTeamStats(match.teamA, match.scoreA, match.scoreB);
-    applyTeamStats(match.teamB, match.scoreB, match.scoreA);
-    applyPairStats(match.teamA, match.scoreA, match.scoreB);
-    applyPairStats(match.teamB, match.scoreB, match.scoreA);
+    const margin = Math.abs(match.scoreA - match.scoreB);
+    summary.totalMargin += margin;
+    summary.totalPoints += match.scoreA + match.scoreB;
+    if (margin <= 4) summary.closeGames += 1;
+    if (margin === 0) summary.draws += 1;
+    if (margin >= 10) summary.decisiveGames += 1;
+    if (!summary.biggestWin || margin > summary.biggestWin.margin) {
+      summary.biggestWin = { match, margin };
+    }
+    if (!summary.closestGame || margin < summary.closestGame.margin) {
+      summary.closestGame = { match, margin };
+    }
+
+    applyTeamStats(match.teamA, match.teamB, match.scoreA, match.scoreB);
+    applyTeamStats(match.teamB, match.teamA, match.scoreB, match.scoreA);
+    applyPairStats(match.teamA, match.scoreA, match.scoreB, margin);
+    applyPairStats(match.teamB, match.scoreB, match.scoreA, margin);
   });
 
-  function applyTeamStats(team, pointsFor, pointsAgainst) {
+  function applyTeamStats(team, opponents, pointsFor, pointsAgainst) {
+    const margin = Math.abs(pointsFor - pointsAgainst);
+    const isClose = margin <= 4;
+    const isBlowout = margin >= 10;
     team.forEach((id) => {
       const row = playerStats.get(id);
       if (!row) return;
@@ -885,10 +917,16 @@ function stats() {
       row.diff += pointsFor - pointsAgainst;
       if (pointsFor > pointsAgainst) row.wins += 1;
       if (pointsFor === pointsAgainst) row.draws += 1;
+      if (pointsFor < pointsAgainst) row.losses += 1;
+      if (isClose) row.closeGames += 1;
+      if (isClose && pointsFor > pointsAgainst) row.closeWins += 1;
+      if (isBlowout && pointsFor > pointsAgainst) row.blowoutWins += 1;
+      team.filter((partnerId) => partnerId !== id).forEach((partnerId) => row.partnerIds.add(partnerId));
+      opponents.forEach((opponentId) => row.opponentIds.add(opponentId));
     });
   }
 
-  function applyPairStats(team, pointsFor, pointsAgainst) {
+  function applyPairStats(team, pointsFor, pointsAgainst, margin) {
     const key = team.slice().sort().join("|");
     if (!pairStats.has(key)) {
       pairStats.set(key, {
@@ -897,40 +935,87 @@ function stats() {
         games: 0,
         wins: 0,
         draws: 0,
+        losses: 0,
         diff: 0,
-        pointsFor: 0
+        pointsFor: 0,
+        pointsAgainst: 0,
+        closeGames: 0,
+        closeWins: 0
       });
     }
     const row = pairStats.get(key);
     row.games += 1;
     row.pointsFor += pointsFor;
+    row.pointsAgainst += pointsAgainst;
     row.diff += pointsFor - pointsAgainst;
     if (pointsFor > pointsAgainst) row.wins += 1;
     if (pointsFor === pointsAgainst) row.draws += 1;
+    if (pointsFor < pointsAgainst) row.losses += 1;
+    if (margin <= 4) row.closeGames += 1;
+    if (margin <= 4 && pointsFor > pointsAgainst) row.closeWins += 1;
   }
 
-  const rankedPlayers = [...playerStats.values()].sort((a, b) => {
+  const rankedPlayers = [...playerStats.values()].map((player) => ({
+    ...player,
+    winRate: player.games ? player.wins / player.games : 0,
+    avgDiff: player.games ? player.diff / player.games : 0,
+    uniquePartners: player.partnerIds.size,
+    uniqueOpponents: player.opponentIds.size
+  })).sort((a, b) => {
     return b.diff - a.diff || b.wins - a.wins || b.pointsFor - a.pointsFor || a.name.localeCompare(b.name);
   });
-  const rankedPairs = [...pairStats.values()].sort((a, b) => {
+  const rankedPairs = [...pairStats.values()].map((pair) => ({
+    ...pair,
+    winRate: pair.games ? pair.wins / pair.games : 0,
+    avgDiff: pair.games ? pair.diff / pair.games : 0
+  })).sort((a, b) => {
     return b.diff - a.diff || b.wins - a.wins || b.pointsFor - a.pointsFor || a.names.localeCompare(b.names);
   });
 
-  return { rankedPlayers, rankedPairs };
+  summary.avgMargin = summary.games ? summary.totalMargin / summary.games : 0;
+  summary.avgPoints = summary.games ? summary.totalPoints / summary.games : 0;
+
+  return { rankedPlayers, rankedPairs, summary };
 }
 
 function renderAdmin() {
-  const { rankedPlayers, rankedPairs } = stats();
+  const { rankedPlayers, rankedPairs, summary } = stats();
   const winner = rankedPlayers.find((player) => player.games > 0);
   const anchor = rankedPlayers.slice().reverse().find((player) => player.games > 0);
   const mostGames = rankedPlayers.slice().sort((a, b) => b.games - a.games || b.diff - a.diff)[0];
   const bestPair = rankedPairs.find((pair) => pair.games > 0);
+  const bestWinRate = rankedPlayers
+    .filter((player) => player.games > 0)
+    .sort((a, b) => b.winRate - a.winRate || b.diff - a.diff || b.games - a.games)[0];
+  const clutchPlayer = rankedPlayers
+    .filter((player) => player.closeGames > 0)
+    .sort((a, b) => b.closeWins - a.closeWins || b.closeGames - a.closeGames || b.diff - a.diff)[0];
+  const socialPlayer = rankedPlayers
+    .filter((player) => player.games > 0)
+    .sort((a, b) => b.uniquePartners - a.uniquePartners || b.games - a.games || b.diff - a.diff)[0];
+  const bestAvgPair = rankedPairs
+    .filter((pair) => pair.games > 0)
+    .sort((a, b) => b.avgDiff - a.avgDiff || b.winRate - a.winRate)[0];
+  const mostClinical = rankedPlayers
+    .filter((player) => player.games > 0)
+    .sort((a, b) => b.avgDiff - a.avgDiff || b.winRate - a.winRate)[0];
+  const steadyHand = rankedPlayers
+    .filter((player) => player.games > 0)
+    .sort((a, b) => Math.abs(a.avgDiff) - Math.abs(b.avgDiff) || b.games - a.games)[0];
 
   els.insights.replaceChildren(
-    insight("Winner", winner?.name || "No data", winner ? `+${winner.diff} diff, ${winner.wins} wins` : "Save matches first"),
-    insight("Best Couple", bestPair?.names || "No data", bestPair ? `+${bestPair.diff} diff over ${bestPair.games} games` : "Save matches first"),
+    insight("Tournament Pulse", summary.games ? `${summary.games} games` : "No data", summary.games ? `${summary.closeGames} close, ${summary.decisiveGames} decisive, ${formatOneDecimal(summary.avgMargin)} avg margin` : "Save matches first"),
+    insight("Leader", winner?.name || "No data", winner ? `${formatDiff(winner.diff)} diff, ${formatPercent(winner.winRate)} wins` : "Save matches first"),
+    insight("Hot Hand", bestWinRate?.name || "No data", bestWinRate ? `${recordLabel(bestWinRate)}, ${formatPercent(bestWinRate.winRate)} win rate` : "Save matches first"),
+    insight("Best Couple", bestPair?.names || "No data", bestPair ? `${formatDiff(bestPair.diff)} diff over ${bestPair.games} games` : "Save matches first"),
+    insight("Most Clinical", mostClinical?.name || "No data", mostClinical ? `${formatOneDecimal(mostClinical.avgDiff)} avg diff per game` : "Save matches first"),
+    insight("Clutch", clutchPlayer?.name || "No close games", clutchPlayer ? `${clutchPlayer.closeWins}/${clutchPlayer.closeGames} close games won` : "Margin of 4 or less"),
+    insight("Mix Master", socialPlayer?.name || "No data", socialPlayer ? `${socialPlayer.uniquePartners} partners, ${socialPlayer.games} games` : "Save matches first"),
+    insight("Best Avg Couple", bestAvgPair?.names || "No data", bestAvgPair ? `${formatOneDecimal(bestAvgPair.avgDiff)} avg diff, ${formatPercent(bestAvgPair.winRate)} wins` : "Save matches first"),
+    insight("Biggest Win", summary.biggestWin ? `${summary.biggestWin.margin} points` : "No data", summary.biggestWin ? matchResultDetail(summary.biggestWin.match) : "Save matches first"),
+    insight("Steady Hand", steadyHand?.name || "No data", steadyHand ? `${formatOneDecimal(steadyHand.avgDiff)} avg diff, ${steadyHand.games} games` : "Save matches first"),
     insight("Most Games", mostGames?.name || "No data", mostGames ? `${mostGames.games} games played` : "Save matches first"),
-    insight("Anchor", anchor?.name || "No data", anchor ? `${anchor.diff} diff. Someone buy him coffee.` : "Save matches first")
+    insight("Anchor", anchor?.name || "No data", anchor ? `${formatDiff(anchor.diff)} diff. Needs a comeback arc.` : "Save matches first")
   );
 
   els.playerStats.replaceChildren(...rankedPlayers.map((player, index) => {
@@ -939,8 +1024,11 @@ function renderAdmin() {
       <td>${index + 1}</td>
       <td>${player.name}</td>
       <td>${player.games}</td>
-      <td>${player.wins}</td>
+      <td>${recordLabel(player)}</td>
+      <td>${formatPercent(player.winRate)}</td>
       <td>${player.pointsFor}-${player.pointsAgainst}</td>
+      <td>${formatOneDecimal(player.avgDiff)}</td>
+      <td>${player.uniquePartners}</td>
       <td>${formatDiff(player.diff)}</td>
     `;
     return row;
@@ -951,9 +1039,11 @@ function renderAdmin() {
     row.innerHTML = `
       <td>${pair.names}</td>
       <td>${pair.games}</td>
-      <td>${pair.wins}</td>
+      <td>${recordLabel(pair)}</td>
+      <td>${formatPercent(pair.winRate)}</td>
+      <td>${pair.pointsFor}-${pair.pointsAgainst}</td>
       <td>${formatDiff(pair.diff)}</td>
-      <td>${(pair.diff / pair.games).toFixed(1)}</td>
+      <td>${formatOneDecimal(pair.avgDiff)}</td>
     `;
     return row;
   }));
@@ -1008,6 +1098,38 @@ function insight(label, value, detail) {
 
 function formatDiff(value) {
   return value > 0 ? `+${value}` : String(value);
+}
+
+function formatPercent(value) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatOneDecimal(value) {
+  return Number.isFinite(value) ? value.toFixed(1) : "0.0";
+}
+
+function recordLabel(row) {
+  return `${row.wins}-${row.draws}-${row.losses}`;
+}
+
+function scoreLine(match) {
+  return `${match.scoreA}-${match.scoreB}`;
+}
+
+function winningTeam(match) {
+  return match.scoreA >= match.scoreB ? match.teamA : match.teamB;
+}
+
+function losingTeam(match) {
+  return match.scoreA >= match.scoreB ? match.teamB : match.teamA;
+}
+
+function matchResultDetail(match) {
+  if (match.scoreA === match.scoreB) {
+    return `${teamLabel(match.teamA)} drew ${teamLabel(match.teamB)} ${scoreLine(match)}`;
+  }
+
+  return `${teamLabel(winningTeam(match))} beat ${teamLabel(losingTeam(match))} ${scoreLine(match)}`;
 }
 
 function openScoreEditor(matchId) {
