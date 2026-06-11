@@ -240,6 +240,7 @@ h3 {
 }
 
 .player-slot {
+  position: relative;
   display: grid;
   align-content: center;
   justify-items: center;
@@ -255,12 +256,38 @@ h3 {
 }
 
 .player-slot.has-player {
+  overflow: hidden;
+  align-content: end;
+  min-height: 154px;
+  padding: 0;
   background: #fff;
+}
+
+.player-slot.has-player::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(25, 32, 42, 0) 42%, rgba(25, 32, 42, 0.72) 100%);
+  pointer-events: none;
 }
 
 .player-slot .avatar {
   width: 74px;
   height: 74px;
+}
+
+.player-slot.has-player .avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+}
+
+.player-slot.has-player .profile-icon {
+  width: 54px;
+  height: 54px;
 }
 
 .plus-mark {
@@ -282,6 +309,16 @@ h3 {
   font-size: 0.98rem;
   font-weight: 950;
   line-height: 1.1;
+}
+
+.player-slot.has-player .slot-player-name {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 42px 8px 10px;
+  color: #fff;
+  font-size: 1.08rem;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
 }
 
 .match-flip {
@@ -660,30 +697,49 @@ h3 {
 }
 
 .picker-card {
+  position: relative;
   grid-template-columns: 1fr;
   justify-items: center;
-  align-content: center;
-  gap: 10px;
-  min-height: 146px;
-  aspect-ratio: 0.86;
-  padding: 12px 8px;
+  align-content: end;
+  overflow: hidden;
+  gap: 0;
+  min-height: 172px;
+  aspect-ratio: 0.9;
+  padding: 0;
   text-align: center;
 }
 
+.picker-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(25, 32, 42, 0) 40%, rgba(25, 32, 42, 0.76) 100%);
+  pointer-events: none;
+}
+
 .picker-card .avatar {
-  width: 82px;
-  height: 82px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 8px;
 }
 
 .picker-card .profile-icon {
-  width: 44px;
-  height: 44px;
+  width: 58px;
+  height: 58px;
 }
 
 .picker-card > span:not(.avatar) {
+  position: relative;
+  z-index: 2;
   display: grid;
   gap: 2px;
+  width: 100%;
+  min-height: 58px;
+  align-content: end;
+  padding: 34px 8px 9px;
 }
 
 .picker-card:disabled {
@@ -691,16 +747,17 @@ h3 {
 }
 
 .picker-name {
-  color: rgba(25, 32, 42, 0.86);
-  font-size: 1.08rem;
+  color: #fff;
+  font-size: 1.14rem;
   font-weight: 950;
   line-height: 1.1;
   overflow-wrap: anywhere;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
 }
 
 .picker-state {
   min-height: 16px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -930,12 +987,16 @@ th {
     min-height: 128px;
   }
 
+  .player-slot.has-player {
+    min-height: 146px;
+  }
+
   .avatar {
     width: 50px;
     height: 50px;
   }
 
-  .player-slot .avatar {
+  .player-slot:not(.has-player) .avatar {
     width: 76px;
     height: 76px;
   }
@@ -962,17 +1023,17 @@ th {
   }
 
   .picker-card {
-    min-height: 154px;
-    padding: 12px 8px;
+    min-height: 176px;
+    padding: 0;
   }
 
   .picker-card .avatar {
-    width: 88px;
-    height: 88px;
+    width: 100%;
+    height: 100%;
   }
 
   .picker-name {
-    font-size: 1.12rem;
+    font-size: 1.16rem;
   }
 
   .section-heading,
