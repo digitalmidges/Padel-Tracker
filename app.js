@@ -14,6 +14,19 @@ const defaultPlayerNames = [
   "שחר"
 ];
 
+const defaultPlayerPhotos = {
+  "איתי": "images/itai.jpg",
+  "עודד": "images/oded.jpg",
+  "ניראל": "images/nirel.jpg",
+  "אמרי": "images/imri.jpg",
+  "בן": "images/ben.jpg",
+  "סמסון": "images/samson.jpg",
+  "קובי": "images/kobi.jpg",
+  "פרידמן": "images/fridman.jpg",
+  "אמיר": "images/amir.jpg",
+  "שחר": "images/shahar.jpg"
+};
+
 const legacySampleNames = [
   "Amit",
   "Daniel",
@@ -30,7 +43,7 @@ const defaultPlayers = [
 ].map((name) => ({
   id: crypto.randomUUID(),
   name,
-  photo: ""
+  photo: defaultPlayerPhotos[name] || ""
 }));
 
 let state = loadState();
@@ -115,7 +128,7 @@ function loadState() {
       && savedPlayers.every((player, index) => player.name === legacySampleNames[index]);
 
     return {
-      players: isLegacyRoster && !savedMatches.length ? defaultPlayers : savedPlayers.length ? savedPlayers : defaultPlayers,
+      players: isLegacyRoster && !savedMatches.length ? defaultPlayers : savedPlayers.length ? hydrateBundledPhotos(savedPlayers) : defaultPlayers,
       matches: savedMatches,
       draft: parsed.draft || emptyDraft()
     };
@@ -130,6 +143,13 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function hydrateBundledPhotos(players) {
+  return players.map((player) => ({
+    ...player,
+    photo: player.photo || defaultPlayerPhotos[player.name] || ""
+  }));
 }
 
 function emptyDraft() {
