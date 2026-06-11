@@ -79,6 +79,28 @@
             </div>
 
             <button id="save-match" class="primary-button" type="button">Save Match</button>
+
+            <section class="match-generator" aria-labelledby="generator-title">
+              <div class="section-heading tight">
+                <div>
+                  <p class="eyebrow">Next round</p>
+                  <h2 id="generator-title">Random Match</h2>
+                </div>
+                <div class="segmented-control" aria-label="Number of games">
+                  <button class="is-active" id="generate-one-game" type="button" data-games="1">1 Court</button>
+                  <button id="generate-two-games" type="button" data-games="2">2 Courts</button>
+                </div>
+              </div>
+              <div class="generator-available">
+                <div class="generator-meta">
+                  <strong id="available-count">0 available</strong>
+                  <span id="generator-note">Select who can play now.</span>
+                </div>
+                <div class="available-player-grid" id="available-player-grid"></div>
+              </div>
+              <button class="ghost-button" id="generate-random-match" type="button">Generate Random Match</button>
+              <div class="generated-matches" id="generated-matches" aria-live="polite"></div>
+            </section>
           </section>
 
           <aside class="recent-panel" aria-labelledby="recent-title">

@@ -425,6 +425,160 @@ h3 {
   font-weight: 850;
 }
 
+.match-generator {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(76px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9faf7;
+}
+
+.segmented-control button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.segmented-control button.is-active {
+  background: var(--ink);
+  color: #fff;
+}
+
+.generator-available {
+  display: grid;
+  gap: 10px;
+}
+
+.generator-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.generator-meta strong {
+  color: var(--ink);
+}
+
+.available-player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 8px;
+}
+
+.available-player-card {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  min-height: 104px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.available-player-card.is-selected {
+  border-color: rgba(28, 107, 85, 0.5);
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.available-player-card .avatar {
+  width: 54px;
+  height: 54px;
+}
+
+.generated-matches {
+  display: grid;
+  gap: 10px;
+}
+
+.generator-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.generated-match-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.generated-match-topline,
+.generated-teams {
+  display: grid;
+  gap: 8px;
+}
+
+.generated-match-topline {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.generated-match-topline span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.generated-match-topline strong {
+  justify-self: end;
+  color: var(--green);
+  font-size: 0.86rem;
+}
+
+.generated-teams {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.generated-teams div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.generated-teams small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.generated-teams strong {
+  overflow-wrap: anywhere;
+  font-size: 0.94rem;
+}
+
+.ghost-button.compact {
+  min-height: 36px;
+}
+
 .score-presets button {
   padding: 0 14px;
 }

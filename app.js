@@ -62,6 +62,9 @@ let remotePlayerSaveTimer = null;
 let remotePollTimer = null;
 let applyingRemoteState = false;
 const pendingMatchIds = new Set();
+let generatorGameCount = 1;
+let generatorAvailableIds = null;
+let generatedMatchSuggestions = [];
 
 const els = {
   appTitle: document.querySelector("#app-title"),
@@ -74,6 +77,13 @@ const els = {
   scoreStatus: document.querySelector("#score-status"),
   saveMatch: document.querySelector("#save-match"),
   flipScore: document.querySelector("#flip-score"),
+  generateOneGame: document.querySelector("#generate-one-game"),
+  generateTwoGames: document.querySelector("#generate-two-games"),
+  generateRandomMatch: document.querySelector("#generate-random-match"),
+  availableCount: document.querySelector("#available-count"),
+  generatorNote: document.querySelector("#generator-note"),
+  availablePlayerGrid: document.querySelector("#available-player-grid"),
+  generatedMatches: document.querySelector("#generated-matches"),
   matchList: document.querySelector("#match-list"),
   matchCount: document.querySelector("#match-count"),
   historyList: document.querySelector("#history-list"),
@@ -563,6 +573,199 @@ function renderMatchForm() {
   els.scoreB.value = state.draft.scoreB;
   updateScoreStatus();
   validateMatch();
+  renderMatchGenerator();
+}
+
+function activePlayers() {
+  return state.players.filter((player) => player.playing);
+}
+
+function ensureGeneratorAvailableIds() {
+  const activeIds = new Set(activePlayers().map((player) => player.id));
+  if (!generatorAvailableIds) {
+    generatorAvailableIds = new Set(activeIds);
+    return;
+  }
+
+  generatorAvailableIds = new Set([...generatorAvailableIds].filter((id) => activeIds.has(id)));
+}
+
+function renderMatchGenerator() {
+  ensureGeneratorAvailableIds();
+  const availablePlayers = activePlayers();
+  const selectedCount = generatorAvailableIds.size;
+  const neededPlayers = generatorGameCount * 4;
+
+  els.generateOneGame.classList.toggle("is-active", generatorGameCount === 1);
+  els.generateTwoGames.classList.toggle("is-active", generatorGameCount === 2);
+  els.availableCount.textContent = `${selectedCount}/${availablePlayers.length} available`;
+  els.generatorNote.textContent = selectedCount >= neededPlayers
+    ? `${neededPlayers} players needed for ${generatorGameCount === 1 ? "1 court" : "2 courts"}.`
+    : `Select ${neededPlayers - selectedCount} more for ${generatorGameCount === 1 ? "1 court" : "2 courts"}.`;
+  els.generateRandomMatch.disabled = selectedCount < neededPlayers;
+
+  els.availablePlayerGrid.replaceChildren(...availablePlayers.map((player) => {
+    const button = document.createElement("button");
+    const isSelected = generatorAvailableIds.has(player.id);
+    button.className = "available-player-card";
+    button.classList.toggle("is-selected", isSelected);
+    button.type = "button";
+    button.setAttribute("aria-pressed", String(isSelected));
+
+    const name = document.createElement("span");
+    name.textContent = firstName(player.name);
+    button.append(avatar(player), name);
+    button.addEventListener("click", () => toggleGeneratorPlayer(player.id));
+    return button;
+  }));
+
+  renderGeneratedMatches();
+}
+
+function toggleGeneratorPlayer(playerId) {
+  ensureGeneratorAvailableIds();
+  if (generatorAvailableIds.has(playerId)) {
+    generatorAvailableIds.delete(playerId);
+  } else {
+    generatorAvailableIds.add(playerId);
+  }
+  generatedMatchSuggestions = [];
+  renderMatchGenerator();
+}
+
+function setGeneratorGameCount(count) {
+  generatorGameCount = count;
+  generatedMatchSuggestions = [];
+  renderMatchGenerator();
+}
+
+function renderGeneratedMatches() {
+  els.generatedMatches.replaceChildren();
+
+  if (!generatedMatchSuggestions.length) {
+    const empty = document.createElement("p");
+    empty.className = "generator-empty";
+    empty.textContent = "Generate when the next players are ready.";
+    els.generatedMatches.append(empty);
+    return;
+  }
+
+  generatedMatchSuggestions.forEach((suggestion, index) => {
+    const card = document.createElement("article");
+    card.className = "generated-match-card";
+    const historyText = suggestion.historyCount === 0
+      ? "Brand new game"
+      : `Played ${suggestion.historyCount} time${suggestion.historyCount === 1 ? "" : "s"} before`;
+    card.innerHTML = `
+      <div class="generated-match-topline">
+        <span>Court ${index + 1}</span>
+        <strong>${historyText}</strong>
+      </div>
+      <div class="generated-teams">
+        <div>
+          <small>Team A</small>
+          <strong>${teamLabel(suggestion.teamA)}</strong>
+        </div>
+        <div>
+          <small>Team B</small>
+          <strong>${teamLabel(suggestion.teamB)}</strong>
+        </div>
+      </div>
+      <button class="ghost-button compact" type="button" data-suggestion="${index}">Use this match</button>
+    `;
+    card.querySelector("button").addEventListener("click", () => useGeneratedMatch(index));
+    els.generatedMatches.append(card);
+  });
+}
+
+function generateRandomMatches() {
+  ensureGeneratorAvailableIds();
+  const availableIds = [...generatorAvailableIds];
+  const neededPlayers = generatorGameCount * 4;
+
+  if (availableIds.length < neededPlayers) {
+    toast(`Need ${neededPlayers} available players`);
+    return;
+  }
+
+  const selectedIds = choosePlayersForGeneratedMatches(availableIds, neededPlayers);
+  generatedMatchSuggestions = [];
+  const remainingIds = selectedIds.slice();
+
+  for (let court = 0; court < generatorGameCount; court += 1) {
+    const courtIds = remainingIds.splice(0, 4);
+    generatedMatchSuggestions.push(bestRandomMatchForPlayers(courtIds));
+  }
+
+  renderGeneratedMatches();
+}
+
+function choosePlayersForGeneratedMatches(playerIds, neededPlayers) {
+  const shuffled = shuffle(playerIds);
+  if (playerIds.length <= neededPlayers) return shuffled.slice(0, neededPlayers);
+
+  const gameCounts = new Map();
+  state.matches.forEach((match) => {
+    [...match.teamA, ...match.teamB].forEach((id) => {
+      gameCounts.set(id, (gameCounts.get(id) || 0) + 1);
+    });
+  });
+
+  return shuffled
+    .sort((a, b) => (gameCounts.get(a) || 0) - (gameCounts.get(b) || 0) || Math.random() - 0.5)
+    .slice(0, neededPlayers);
+}
+
+function bestRandomMatchForPlayers(playerIds) {
+  const matchups = possibleMatchups(playerIds);
+  const enriched = matchups.map((matchup) => ({
+    ...matchup,
+    historyCount: matchupHistoryCount(matchup.teamA, matchup.teamB)
+  }));
+  const lowestCount = Math.min(...enriched.map((matchup) => matchup.historyCount));
+  return shuffle(enriched.filter((matchup) => matchup.historyCount === lowestCount))[0];
+}
+
+function possibleMatchups(playerIds) {
+  const [a, b, c, d] = playerIds;
+  return [
+    { teamA: [a, b], teamB: [c, d] },
+    { teamA: [a, c], teamB: [b, d] },
+    { teamA: [a, d], teamB: [b, c] }
+  ];
+}
+
+function matchupHistoryCount(teamA, teamB) {
+  const key = matchupKey(teamA, teamB);
+  return state.matches.filter((match) => matchupKey(match.teamA, match.teamB) === key).length;
+}
+
+function matchupKey(teamA, teamB) {
+  return [pairKey(teamA), pairKey(teamB)].sort().join(" vs ");
+}
+
+function pairKey(team) {
+  return team.slice().sort().join("|");
+}
+
+function useGeneratedMatch(index) {
+  const suggestion = generatedMatchSuggestions[index];
+  if (!suggestion) return;
+
+  state.draft.a1 = suggestion.teamA[0];
+  state.draft.a2 = suggestion.teamA[1];
+  state.draft.b1 = suggestion.teamB[0];
+  state.draft.b2 = suggestion.teamB[1];
+  saveState();
+  renderAll();
+  toast(`Court ${index + 1} loaded`);
+}
+
+function shuffle(items) {
+  return items
+    .map((item) => ({ item, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ item }) => item);
 }
 
 function renderAdminRoster() {
@@ -1321,6 +1524,9 @@ document.querySelectorAll(".score-presets button").forEach((button) => {
 });
 els.flipScore.addEventListener("click", flipScore);
 els.saveMatch.addEventListener("click", saveMatch);
+els.generateOneGame.addEventListener("click", () => setGeneratorGameCount(1));
+els.generateTwoGames.addEventListener("click", () => setGeneratorGameCount(2));
+els.generateRandomMatch.addEventListener("click", generateRandomMatches);
 
 els.unlockForm.addEventListener("submit", (event) => {
   event.preventDefault();
