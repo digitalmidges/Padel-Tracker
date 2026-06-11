@@ -173,6 +173,10 @@ function playerName(id) {
   return playerById(id)?.name || "Unknown";
 }
 
+function firstName(name) {
+  return name.split(/\s+/).filter(Boolean)[0] || name;
+}
+
 function initials(name) {
   return name
     .split(/\s+/)
@@ -277,12 +281,12 @@ function renderPicker() {
 
     const details = document.createElement("span");
     const name = document.createElement("span");
-    name.className = "player-name";
-    name.textContent = player.name;
+    name.className = "picker-name";
+    name.textContent = firstName(player.name);
     const meta = document.createElement("span");
-    meta.className = "meta";
-    meta.textContent = button.disabled ? "Already selected" : "Tap to choose";
-    details.append(name, document.createElement("br"), meta);
+    meta.className = "picker-state";
+    meta.textContent = button.disabled ? "Selected" : "";
+    details.append(name, meta);
 
     button.append(avatar(player), details);
     button.addEventListener("click", () => {
