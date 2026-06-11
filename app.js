@@ -52,7 +52,6 @@ let editingPlayerId = null;
 let editingMatchId = null;
 let pendingDeleteMatchId = null;
 let pendingPhotoData = "";
-let presetTeam = "a";
 
 const els = {
   tabs: document.querySelectorAll(".tab"),
@@ -63,7 +62,6 @@ const els = {
   scoreStatus: document.querySelector("#score-status"),
   saveMatch: document.querySelector("#save-match"),
   flipScore: document.querySelector("#flip-score"),
-  presetTeamButtons: document.querySelectorAll("[data-preset-team]"),
   matchList: document.querySelector("#match-list"),
   matchCount: document.querySelector("#match-count"),
   historyList: document.querySelector("#history-list"),
@@ -451,15 +449,8 @@ function setScore(side, rawValue) {
   renderMatchForm();
 }
 
-function setPresetTeam(team) {
-  presetTeam = team;
-  els.presetTeamButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.presetTeam === team);
-  });
-}
-
 function applyPreset(score) {
-  setScore(presetTeam, score);
+  setScore("a", score);
 }
 
 function flipScore() {
@@ -847,9 +838,6 @@ els.closePicker.addEventListener("click", () => els.picker.close());
 els.closePlayerEditor.addEventListener("click", () => els.playerEditor.close());
 els.scoreA.addEventListener("input", (event) => setScore("a", event.target.value));
 els.scoreB.addEventListener("input", (event) => setScore("b", event.target.value));
-els.presetTeamButtons.forEach((button) => {
-  button.addEventListener("click", () => setPresetTeam(button.dataset.presetTeam));
-});
 document.querySelectorAll(".score-presets button").forEach((button) => {
   button.addEventListener("click", () => applyPreset(button.dataset.score));
 });

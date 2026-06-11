@@ -344,43 +344,6 @@ h3 {
   color: var(--muted);
 }
 
-.score-target {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.score-target > span {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.segmented-control {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.segmented-control button {
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f9faf7;
-  color: var(--muted);
-  font-weight: 950;
-}
-
-.segmented-control button.is-active {
-  border-color: var(--green);
-  background: var(--green);
-  color: #fff;
-}
-
 .score-presets {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
