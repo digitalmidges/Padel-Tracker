@@ -1,3 +1,5 @@
+import { firebaseConfig, firebaseOptions } from "./firebase-config.js";
+
 const STORAGE_KEY = "padel-tracker-state-v1";
 const ADMIN_CODE = "2468";
 
@@ -51,6 +53,9 @@ let state = loadState();
 let selectedSlot = null;
 let editingMatchId = null;
 let pendingDeleteMatchId = null;
+let remoteRef = null;
+let remoteSaveTimer = null;
+let applyingRemoteState = false;
 
 const els = {
   appTitle: document.querySelector("#app-title"),
@@ -108,36 +113,131 @@ const els = {
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (!saved) {
-    return {
-      players: defaultPlayers,
-      matches: [],
-      draft: emptyDraft()
-    };
+    return normalizeState();
   }
 
   try {
-    const parsed = JSON.parse(saved);
-    const savedPlayers = Array.isArray(parsed.players) ? parsed.players : [];
-    const savedMatches = Array.isArray(parsed.matches) ? parsed.matches : [];
-    const isLegacyRoster = savedPlayers.length === legacySampleNames.length
-      && savedPlayers.every((player, index) => player.name === legacySampleNames[index]);
-
-    return {
-      players: isLegacyRoster && !savedMatches.length ? defaultPlayers : savedPlayers.length ? hydrateBundledPhotos(savedPlayers) : defaultPlayers,
-      matches: savedMatches,
-      draft: parsed.draft || emptyDraft()
-    };
+    return normalizeState(JSON.parse(saved));
   } catch {
-    return {
-      players: defaultPlayers,
-      matches: [],
-      draft: emptyDraft()
-    };
+    return normalizeState();
   }
 }
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  scheduleRemoteSave();
+}
+
+function normalizeState(input = {}) {
+  const savedPlayers = Array.isArray(input.players) ? input.players : [];
+  const savedMatches = Array.isArray(input.matches) ? input.matches : [];
+  const isLegacyRoster = savedPlayers.length === legacySampleNames.length
+    && savedPlayers.every((player, index) => player.name === legacySampleNames[index]);
+
+  return {
+    players: isLegacyRoster && !savedMatches.length
+      ? defaultPlayers
+      : savedPlayers.length
+        ? hydrateBundledPhotos(savedPlayers)
+        : defaultPlayers,
+    matches: savedMatches,
+    draft: normalizeDraft(input.draft)
+  };
+}
+
+function normalizeDraft(draft = {}) {
+  return {
+    ...emptyDraft(),
+    ...draft
+  };
+}
+
+function remotePayload() {
+  return {
+    players: state.players,
+    matches: state.matches,
+    draft: state.draft
+  };
+}
+
+function hasFirebaseConfig() {
+  return Boolean(
+    firebaseOptions.enabled
+    && firebaseConfig.apiKey
+    && firebaseConfig.projectId
+    && firebaseConfig.appId
+  );
+}
+
+function scheduleRemoteSave() {
+  if (!remoteRef || applyingRemoteState) return;
+
+  window.clearTimeout(remoteSaveTimer);
+  remoteSaveTimer = window.setTimeout(async () => {
+    try {
+      const { setDoc, serverTimestamp } = await firebaseModules();
+      await setDoc(remoteRef, {
+        ...remotePayload(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      console.error("Could not sync tournament state", error);
+      toast("Could not sync. Saved on this phone.");
+    }
+  }, 250);
+}
+
+let firebaseModulePromise = null;
+function firebaseModules() {
+  if (!firebaseModulePromise) {
+    firebaseModulePromise = Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js")
+    ]).then(([appModule, firestoreModule]) => ({
+      ...appModule,
+      ...firestoreModule
+    }));
+  }
+
+  return firebaseModulePromise;
+}
+
+async function initRemoteSync() {
+  if (!hasFirebaseConfig()) {
+    console.info("Firebase is disabled. Using local browser storage.");
+    return;
+  }
+
+  try {
+    const { initializeApp, getFirestore, doc, onSnapshot, setDoc, serverTimestamp } = await firebaseModules();
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const tournamentId = firebaseOptions.tournamentId || "main";
+    remoteRef = doc(db, "tournaments", tournamentId);
+
+    onSnapshot(remoteRef, async (snapshot) => {
+      if (!snapshot.exists()) {
+        await setDoc(remoteRef, {
+          ...remotePayload(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        return;
+      }
+
+      applyingRemoteState = true;
+      state = normalizeState(snapshot.data());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      applyingRemoteState = false;
+    }, (error) => {
+      console.error("Could not connect shared tournament state", error);
+      toast("Shared sync is offline");
+    });
+  } catch (error) {
+    console.error("Could not start Firebase sync", error);
+    toast("Shared sync is not configured");
+  }
 }
 
 function hydrateBundledPhotos(players) {
@@ -931,4 +1031,5 @@ els.resetMatches.addEventListener("click", () => {
 
 renderAll();
 applyRoute();
+initRemoteSync();
 window.addEventListener("hashchange", applyRoute);
