@@ -1321,18 +1321,18 @@ function renderAdmin() {
     .sort((a, b) => Math.abs(a.avgDiff) - Math.abs(b.avgDiff) || b.games - a.games)[0];
 
   els.insights.replaceChildren(
-    insight("Tournament Pulse", summary.games ? `${summary.games} games` : "No data", summary.games ? `${summary.closeGames} close, ${summary.decisiveGames} decisive, ${formatOneDecimal(summary.avgMargin)} avg margin` : "Save matches first"),
-    insight("Leader", winner?.name || "No data", winner ? `${formatDiff(winner.diff)} diff, ${formatPercent(winner.winRate)} wins` : "Save matches first"),
-    insight("Hot Hand", bestWinRate?.name || "No data", bestWinRate ? `${recordLabel(bestWinRate)}, ${formatPercent(bestWinRate.winRate)} win rate` : "Save matches first"),
-    insight("Best Couple", bestPair?.names || "No data", bestPair ? `${formatDiff(bestPair.diff)} diff over ${bestPair.games} games` : "Save matches first"),
-    insight("Most Clinical", mostClinical?.name || "No data", mostClinical ? `${formatOneDecimal(mostClinical.avgDiff)} avg diff per game` : "Save matches first"),
-    insight("Clutch", clutchPlayer?.name || "No close games", clutchPlayer ? `${clutchPlayer.closeWins}/${clutchPlayer.closeGames} close games won` : "Margin of 4 or less"),
-    insight("Mix Master", socialPlayer?.name || "No data", socialPlayer ? `${socialPlayer.uniquePartners} partners, ${socialPlayer.games} games` : "Save matches first"),
-    insight("Best Avg Couple", bestAvgPair?.names || "No data", bestAvgPair ? `${formatOneDecimal(bestAvgPair.avgDiff)} avg diff, ${formatPercent(bestAvgPair.winRate)} wins` : "Save matches first"),
-    insight("Biggest Win", summary.biggestWin ? `${summary.biggestWin.margin} points` : "No data", summary.biggestWin ? matchResultDetail(summary.biggestWin.match) : "Save matches first"),
-    insight("Steady Hand", steadyHand?.name || "No data", steadyHand ? `${formatOneDecimal(steadyHand.avgDiff)} avg diff, ${steadyHand.games} games` : "Save matches first"),
-    insight("Most Games", mostGames?.name || "No data", mostGames ? `${mostGames.games} games played` : "Save matches first"),
-    insight("Anchor", anchor?.name || "No data", anchor ? `${formatDiff(anchor.diff)} diff. Needs a comeback arc.` : "Save matches first")
+    insight("Tournament Pulse", summary.games ? `${summary.games} games` : "No data", summary.games ? `${summary.closeGames} close, ${summary.decisiveGames} decisive, ${formatOneDecimal(summary.avgMargin)} avg margin` : "Save matches first", "Overall tournament shape: close games are decided by 4 points or less; decisive games are 10+ point margins."),
+    insight("Leader", winner?.name || "No data", winner ? `${formatDiff(winner.diff)} diff, ${formatPercent(winner.winRate)} wins` : "Save matches first", "Top ranked player by total point difference, then wins and points scored.", { playerIds: winner ? [winner.id] : [] }),
+    insight("Hot Hand", bestWinRate?.name || "No data", bestWinRate ? `${recordLabel(bestWinRate)}, ${formatPercent(bestWinRate.winRate)} win rate` : "Save matches first", "Best win rate among players who have played at least one game.", { playerIds: bestWinRate ? [bestWinRate.id] : [] }),
+    insight("Best Couple", bestPair?.names || "No data", bestPair ? `${formatDiff(bestPair.diff)} diff over ${bestPair.games} games` : "Save matches first", "Best two-player partnership by total point difference.", { playerIds: bestPair?.ids || [] }),
+    insight("Most Clinical", mostClinical?.name || "No data", mostClinical ? `${formatOneDecimal(mostClinical.avgDiff)} avg diff per game` : "Save matches first", "Highest average point margin per game. This rewards efficient wins.", { playerIds: mostClinical ? [mostClinical.id] : [] }),
+    insight("Clutch", clutchPlayer?.name || "No close games", clutchPlayer ? `${clutchPlayer.closeWins}/${clutchPlayer.closeGames} close games won` : "Margin of 4 or less", "Best performer in close games, where the final margin is 4 points or less.", { playerIds: clutchPlayer ? [clutchPlayer.id] : [] }),
+    insight("Mix Master", socialPlayer?.name || "No data", socialPlayer ? `${socialPlayer.uniquePartners} partners, ${socialPlayer.games} games` : "Save matches first", "Player who has teamed up with the most different partners.", { playerIds: socialPlayer ? [socialPlayer.id] : [] }),
+    insight("Best Avg Couple", bestAvgPair?.names || "No data", bestAvgPair ? `${formatOneDecimal(bestAvgPair.avgDiff)} avg diff, ${formatPercent(bestAvgPair.winRate)} wins` : "Save matches first", "Partnership with the best average point difference per game.", { playerIds: bestAvgPair?.ids || [] }),
+    insight("Biggest Win", summary.biggestWin ? `${summary.biggestWin.margin} points` : "No data", summary.biggestWin ? matchResultDetail(summary.biggestWin.match) : "Save matches first", "The single largest winning margin in one saved game.", { playerIds: summary.biggestWin ? winningTeam(summary.biggestWin.match) : [] }),
+    insight("Steady Hand", steadyHand?.name || "No data", steadyHand ? `${formatOneDecimal(steadyHand.avgDiff)} avg diff, ${steadyHand.games} games` : "Save matches first", "Most balanced player: average point difference closest to zero.", { playerIds: steadyHand ? [steadyHand.id] : [] }),
+    insight("Most Games", mostGames?.name || "No data", mostGames ? `${mostGames.games} games played` : "Save matches first", "Player who appeared in the most saved games.", { playerIds: mostGames ? [mostGames.id] : [] }),
+    insight("Anchor", anchor?.name || "No data", anchor ? `${formatDiff(anchor.diff)} diff. Needs a comeback arc.` : "Save matches first", "Lowest ranked player by point difference among players who have played.", { playerIds: anchor ? [anchor.id] : [] })
   );
 
   els.playerStats.replaceChildren(...rankedPlayers.map((player, index) => {
@@ -1402,15 +1402,50 @@ function renderAdminMatches() {
   });
 }
 
-function insight(label, value, detail) {
+function insight(label, value, detail, explanation, options = {}) {
   const card = document.createElement("article");
   card.className = "insight-card";
-  card.innerHTML = `
-    <div class="insight-label">${label}</div>
-    <div class="insight-value">${value}</div>
-    <div class="insight-detail">${detail}</div>
-  `;
+
+  const header = document.createElement("div");
+  header.className = "insight-header";
+
+  const labelNode = document.createElement("div");
+  labelNode.className = "insight-label";
+  labelNode.textContent = label;
+
+  const avatars = insightAvatars(options.playerIds || []);
+  header.append(labelNode);
+  if (avatars) header.append(avatars);
+
+  const valueNode = document.createElement("div");
+  valueNode.className = "insight-value";
+  valueNode.textContent = value;
+
+  const detailNode = document.createElement("div");
+  detailNode.className = "insight-detail";
+  detailNode.textContent = detail;
+
+  const explanationNode = document.createElement("div");
+  explanationNode.className = "insight-explanation";
+  explanationNode.textContent = explanation;
+
+  card.append(header, valueNode, detailNode, explanationNode);
   return card;
+}
+
+function insightAvatars(playerIds) {
+  const players = playerIds.map(playerById).filter(Boolean);
+  if (!players.length) return null;
+
+  const list = document.createElement("div");
+  list.className = "insight-avatars";
+  players.slice(0, 2).forEach((player) => {
+    const item = avatar(player);
+    item.classList.add("insight-avatar");
+    item.setAttribute("title", player.name);
+    list.append(item);
+  });
+  return list;
 }
 
 function formatDiff(value) {

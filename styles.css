@@ -1052,10 +1052,34 @@ label input,
   background: #fff;
 }
 
+.insight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .insight-label {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 850;
+}
+
+.insight-avatars {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.insight-avatar {
+  width: 34px;
+  height: 34px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(25, 32, 42, 0.14);
+}
+
+.insight-avatar + .insight-avatar {
+  margin-left: -9px;
 }
 
 .insight-value {
@@ -1068,6 +1092,16 @@ label input,
 .insight-detail {
   margin-top: 8px;
   color: var(--muted);
+}
+
+.insight-explanation {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: rgba(25, 32, 42, 0.72);
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.35;
 }
 
 .tables {
