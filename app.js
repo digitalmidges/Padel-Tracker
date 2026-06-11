@@ -692,7 +692,27 @@ function renderGeneratedMatches() {
     useButton.textContent = "Use this match";
     useButton.addEventListener("click", () => useGeneratedMatch(index));
 
-    card.append(topline, teams, useButton);
+    const actions = document.createElement("div");
+    actions.className = "generated-actions";
+    actions.append(useButton);
+
+    if (generatedMatchSuggestions.length === 2) {
+      const regenerateButton = document.createElement("button");
+      regenerateButton.className = "ghost-button compact";
+      regenerateButton.type = "button";
+      regenerateButton.textContent = "Regenerate this court";
+      regenerateButton.addEventListener("click", () => regenerateGeneratedCourt(index));
+
+      const scrambleButton = document.createElement("button");
+      scrambleButton.className = "ghost-button compact";
+      scrambleButton.type = "button";
+      scrambleButton.textContent = "Scramble both courts";
+      scrambleButton.addEventListener("click", scrambleGeneratedCourts);
+
+      actions.append(regenerateButton, scrambleButton);
+    }
+
+    card.append(topline, teams, actions);
     els.generatedMatches.append(card);
   });
 }
@@ -748,6 +768,57 @@ function generateRandomMatches() {
   }
 
   renderGeneratedMatches();
+}
+
+function regenerateGeneratedCourt(index) {
+  if (!generatedMatchSuggestions[index]) return;
+
+  ensureGeneratorAvailableIds();
+  const usedByOtherCourts = new Set(generatedMatchSuggestions
+    .filter((_, suggestionIndex) => suggestionIndex !== index)
+    .flatMap((suggestion) => [...suggestion.teamA, ...suggestion.teamB]));
+  const candidateIds = [...generatorAvailableIds].filter((id) => !usedByOtherCourts.has(id));
+
+  if (candidateIds.length < 4) {
+    toast("Need 4 available players for this court");
+    return;
+  }
+
+  const currentIds = new Set([...generatedMatchSuggestions[index].teamA, ...generatedMatchSuggestions[index].teamB]);
+  const selectedIds = choosePlayersForGeneratedMatches(candidateIds, 4);
+  const attempts = [selectedIds];
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    attempts.push(choosePlayersForGeneratedMatches(candidateIds, 4));
+  }
+
+  const bestAttempt = attempts
+    .map((ids) => bestRandomMatchForPlayers(ids))
+    .sort((a, b) => {
+      const aChanged = generatedPlayerSetChanged(a, currentIds) ? 0 : 1;
+      const bChanged = generatedPlayerSetChanged(b, currentIds) ? 0 : 1;
+      return a.historyCount - b.historyCount || aChanged - bChanged || Math.random() - 0.5;
+    })[0];
+
+  generatedMatchSuggestions[index] = bestAttempt;
+  renderGeneratedMatches();
+}
+
+function scrambleGeneratedCourts() {
+  if (generatedMatchSuggestions.length < 2) return;
+
+  const allIds = shuffle([...new Set(generatedMatchSuggestions.flatMap((suggestion) => [...suggestion.teamA, ...suggestion.teamB]))]);
+  generatedMatchSuggestions = [];
+
+  for (let court = 0; court < generatorGameCount; court += 1) {
+    const courtIds = allIds.splice(0, 4);
+    generatedMatchSuggestions.push(bestRandomMatchForPlayers(courtIds));
+  }
+
+  renderGeneratedMatches();
+}
+
+function generatedPlayerSetChanged(suggestion, previousIds) {
+  return [...suggestion.teamA, ...suggestion.teamB].some((id) => !previousIds.has(id));
 }
 
 function choosePlayersForGeneratedMatches(playerIds, neededPlayers) {

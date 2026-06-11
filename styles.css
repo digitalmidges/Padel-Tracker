@@ -624,6 +624,12 @@ h3 {
   text-align: center;
 }
 
+.generated-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+}
+
 .ghost-button.compact {
   min-height: 36px;
 }
