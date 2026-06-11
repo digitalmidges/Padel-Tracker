@@ -36,8 +36,14 @@
             <div class="teams">
               <article class="team-panel team-a">
                 <div class="team-title">
-                  <span>Team A</span>
-                  <input id="score-a" class="score-input" type="number" min="0" max="32" inputmode="numeric" aria-label="Team A score" placeholder="0">
+                  <div>
+                    <span>Team A</span>
+                    <small>Players</small>
+                  </div>
+                  <label class="score-field">
+                    Score
+                    <input id="score-a" class="score-input" type="number" min="0" max="32" inputmode="numeric" aria-label="Team A score" placeholder="0">
+                  </label>
                 </div>
                 <div class="player-slots" data-team="a">
                   <button class="player-slot" type="button" data-slot="a1">Pick player</button>
@@ -47,8 +53,14 @@
 
               <article class="team-panel team-b">
                 <div class="team-title">
-                  <span>Team B</span>
-                  <input id="score-b" class="score-input" type="number" min="0" max="32" inputmode="numeric" aria-label="Team B score" placeholder="0">
+                  <div>
+                    <span>Team B</span>
+                    <small>Players</small>
+                  </div>
+                  <label class="score-field">
+                    Score
+                    <input id="score-b" class="score-input" type="number" min="0" max="32" inputmode="numeric" aria-label="Team B score" placeholder="0">
+                  </label>
                 </div>
                 <div class="player-slots" data-team="b">
                   <button class="player-slot" type="button" data-slot="b1">Pick player</button>
@@ -59,13 +71,23 @@
 
             <div class="score-helper">
               <span id="score-status">Enter one score and the other side completes to 32.</span>
+              <div class="score-target" aria-label="Quick score winner">
+                <span>Preset winner</span>
+                <div class="segmented-control">
+                  <button class="is-active" id="preset-team-a" type="button" data-preset-team="a">Team A</button>
+                  <button id="preset-team-b" type="button" data-preset-team="b">Team B</button>
+                </div>
+              </div>
               <div class="score-presets" aria-label="Quick scores">
                 <button type="button" data-score="16">16-16</button>
+                <button type="button" data-score="17">17-15</button>
                 <button type="button" data-score="18">18-14</button>
+                <button type="button" data-score="19">19-13</button>
                 <button type="button" data-score="20">20-12</button>
+                <button type="button" data-score="22">22-10</button>
                 <button type="button" data-score="24">24-8</button>
-                <button type="button" data-score="32">32-0</button>
               </div>
+              <button class="ghost-button" id="flip-score" type="button">Flip score</button>
             </div>
 
             <button id="save-match" class="primary-button" type="button">Save Match</button>

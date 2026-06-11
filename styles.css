@@ -189,6 +189,23 @@ h3 {
   font-weight: 900;
 }
 
+.team-title small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.score-field {
+  width: auto;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .score-input {
   width: 112px;
   height: 76px;
@@ -275,9 +292,46 @@ h3 {
   color: var(--muted);
 }
 
+.score-target {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.score-target > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.segmented-control button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9faf7;
+  color: var(--muted);
+  font-weight: 950;
+}
+
+.segmented-control button.is-active {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
 .score-presets {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
   gap: 8px;
 }
 
@@ -769,12 +823,17 @@ th {
     box-shadow: none;
   }
 
+  .recent-panel {
+    display: none;
+  }
+
   .team-panel {
     padding: 12px;
   }
 
   .team-title {
     align-items: center;
+    gap: 10px;
   }
 
   .team-title span {
@@ -782,9 +841,13 @@ th {
   }
 
   .score-input {
-    width: 86px;
+    width: 82px;
     height: 62px;
     font-size: 1.9rem;
+  }
+
+  .score-field {
+    gap: 4px;
   }
 
   .player-slot,
@@ -801,12 +864,12 @@ th {
 
   .score-presets {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .score-presets button {
     min-height: 46px;
-    padding: 0 8px;
+    padding: 0 6px;
   }
 
   .player-grid,

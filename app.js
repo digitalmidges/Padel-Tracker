@@ -52,7 +52,7 @@ let editingPlayerId = null;
 let editingMatchId = null;
 let pendingDeleteMatchId = null;
 let pendingPhotoData = "";
-let scoreTouched = "a";
+let presetTeam = "a";
 
 const els = {
   tabs: document.querySelectorAll(".tab"),
@@ -63,6 +63,8 @@ const els = {
   scoreStatus: document.querySelector("#score-status"),
   saveMatch: document.querySelector("#save-match"),
   clearMatch: document.querySelector("#clear-match"),
+  flipScore: document.querySelector("#flip-score"),
+  presetTeamButtons: document.querySelectorAll("[data-preset-team]"),
   matchList: document.querySelector("#match-list"),
   matchCount: document.querySelector("#match-count"),
   historyList: document.querySelector("#history-list"),
@@ -427,7 +429,6 @@ function numberOrNull(value) {
 function setScore(side, rawValue) {
   const value = rawValue === "" ? "" : Math.max(0, Math.min(32, Number.parseInt(rawValue, 10) || 0));
   const other = value === "" ? "" : 32 - value;
-  scoreTouched = side;
 
   if (side === "a") {
     state.draft.scoreA = value;
@@ -437,6 +438,25 @@ function setScore(side, rawValue) {
     state.draft.scoreA = other;
   }
 
+  saveState();
+  renderMatchForm();
+}
+
+function setPresetTeam(team) {
+  presetTeam = team;
+  els.presetTeamButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.presetTeam === team);
+  });
+}
+
+function applyPreset(score) {
+  setScore(presetTeam, score);
+}
+
+function flipScore() {
+  const scoreA = state.draft.scoreA;
+  state.draft.scoreA = state.draft.scoreB;
+  state.draft.scoreB = scoreA;
   saveState();
   renderMatchForm();
 }
@@ -818,9 +838,13 @@ els.closePicker.addEventListener("click", () => els.picker.close());
 els.closePlayerEditor.addEventListener("click", () => els.playerEditor.close());
 els.scoreA.addEventListener("input", (event) => setScore("a", event.target.value));
 els.scoreB.addEventListener("input", (event) => setScore("b", event.target.value));
-document.querySelectorAll(".score-presets button").forEach((button) => {
-  button.addEventListener("click", () => setScore(scoreTouched, button.dataset.score));
+els.presetTeamButtons.forEach((button) => {
+  button.addEventListener("click", () => setPresetTeam(button.dataset.presetTeam));
 });
+document.querySelectorAll(".score-presets button").forEach((button) => {
+  button.addEventListener("click", () => applyPreset(button.dataset.score));
+});
+els.flipScore.addEventListener("click", flipScore);
 els.clearMatch.addEventListener("click", () => {
   state.draft = emptyDraft();
   saveState();
