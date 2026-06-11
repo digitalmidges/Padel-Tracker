@@ -64,6 +64,7 @@ p {
 h1 {
   font-size: clamp(2rem, 4vw, 4.25rem);
   line-height: 0.95;
+  user-select: none;
 }
 
 h2 {

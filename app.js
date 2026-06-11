@@ -54,6 +54,7 @@ let pendingDeleteMatchId = null;
 let pendingPhotoData = "";
 
 const els = {
+  appTitle: document.querySelector("#app-title"),
   tabs: document.querySelectorAll(".tab"),
   views: document.querySelectorAll(".view"),
   slots: document.querySelectorAll(".player-slot"),
@@ -829,6 +830,13 @@ function renderAll() {
   renderAdmin();
 }
 
+function unlockAdmin() {
+  els.adminGate.hidden = true;
+  els.adminDashboard.hidden = false;
+  els.adminCode.value = "";
+  renderAdmin();
+}
+
 function showView(viewName) {
   els.tabs.forEach((item) => item.classList.toggle("is-active", item.dataset.view === viewName));
   els.views.forEach((view) => view.classList.toggle("is-active", view.id === `${viewName}-view`));
@@ -844,6 +852,16 @@ function applyRoute() {
   document.body.classList.remove("admin-mode");
   const publicActive = [...els.tabs].find((tab) => tab.classList.contains("is-active"));
   showView(publicActive?.dataset.view || "match");
+}
+
+function openAdminBackdoor() {
+  unlockAdmin();
+  if (window.location.hash !== "#admin") {
+    window.location.hash = "admin";
+  } else {
+    applyRoute();
+  }
+  toast("Admin unlocked");
 }
 
 els.tabs.forEach((tab) => {
@@ -928,13 +946,27 @@ els.deletePlayer.addEventListener("click", () => {
 els.unlockForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (els.adminCode.value === ADMIN_CODE) {
-    els.adminGate.hidden = true;
-    els.adminDashboard.hidden = false;
-    els.adminCode.value = "";
-    renderAdmin();
+    unlockAdmin();
   } else {
     toast("Wrong passcode");
   }
+});
+
+let titleTapCount = 0;
+let titleTapTimer = null;
+els.appTitle.addEventListener("click", () => {
+  titleTapCount += 1;
+  window.clearTimeout(titleTapTimer);
+
+  if (titleTapCount >= 5) {
+    titleTapCount = 0;
+    openAdminBackdoor();
+    return;
+  }
+
+  titleTapTimer = window.setTimeout(() => {
+    titleTapCount = 0;
+  }, 1200);
 });
 
 els.editScoreA.addEventListener("input", (event) => updateEditScore("a", event.target.value));
