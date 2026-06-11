@@ -24,11 +24,9 @@ const defaultPlayerPhotos = {
   "ניראל": "images/nirel.png",
   "אמרי": "images/imri.png",
   "בן": "images/ben.png",
-  "סמסון": "images/samson.jpg",
   "קובי": "images/kobi.jpeg",
   "פרידמן": "images/fridman.jpeg",
   "אלירן": "images/eliran.jpeg",
-  "אמיר": "images/amir.jpg",
   "שחר": "images/shahar.png"
 };
 
@@ -65,6 +63,7 @@ const pendingMatchIds = new Set();
 let generatorGameCount = 1;
 let generatorAvailableIds = null;
 let generatedMatchSuggestions = [];
+const failedPhotoUrls = new Set();
 
 const els = {
   appTitle: document.querySelector("#app-title"),
@@ -520,11 +519,14 @@ function avatar(player) {
     wrap.classList.add("avatar-fallback");
   };
 
-  if (player.photo) {
+  if (player.photo && !failedPhotoUrls.has(player.photo)) {
     const img = document.createElement("img");
     img.src = player.photo;
     img.alt = "";
-    img.onerror = fallback;
+    img.onerror = () => {
+      failedPhotoUrls.add(player.photo);
+      fallback();
+    };
     wrap.append(img);
   } else {
     fallback();
