@@ -592,13 +592,14 @@ h3 {
 }
 
 .generated-player-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  justify-items: center;
-  place-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 8px 6px;
+  padding: 8px 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f9faf7;
@@ -607,12 +608,17 @@ h3 {
 }
 
 .generated-player-card .avatar {
-  width: 58px;
-  height: 58px;
-  margin-inline: auto;
+  flex: 0 0 auto;
+  width: min(58px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  align-self: center;
+  justify-self: center;
 }
 
 .generated-player-card strong {
+  display: block;
   max-width: 100%;
   overflow-wrap: anywhere;
   font-size: 0.9rem;
