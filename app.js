@@ -15,16 +15,16 @@ const defaultPlayerNames = [
 ];
 
 const defaultPlayerPhotos = {
-  "איתי": "images/itay.jpg",
-  "עודד": "images/oded.jpg",
-  "ניראל": "images/nirel.jpg",
-  "אמרי": "images/imri.jpg",
-  "בן": "images/ben.jpg",
+  "איתי": "images/itay.png",
+  "עודד": "images/oded.png",
+  "ניראל": "images/nirel.png",
+  "אמרי": "images/imri.png",
+  "בן": "images/ben.png",
   "סמסון": "images/samson.jpg",
-  "קובי": "images/kobi.jpg",
+  "קובי": "images/kobi.png",
   "פרידמן": "images/fridman.jpg",
   "אמיר": "images/amir.jpg",
-  "שחר": "images/shahar.jpg"
+  "שחר": "images/shahar.png"
 };
 
 const legacySampleNames = [
@@ -183,18 +183,35 @@ function initials(name) {
 function avatar(player) {
   const wrap = document.createElement("span");
   wrap.className = "avatar";
+
+  const fallback = () => {
+    wrap.replaceChildren(profileIcon());
+    wrap.classList.add("avatar-fallback");
+  };
+
   if (player.photo) {
     const img = document.createElement("img");
     img.src = player.photo;
     img.alt = "";
-    img.onerror = () => {
-      wrap.textContent = initials(player.name);
-    };
+    img.onerror = fallback;
     wrap.append(img);
   } else {
-    wrap.textContent = initials(player.name);
+    fallback();
   }
   return wrap;
+}
+
+function profileIcon() {
+  const icon = document.createElement("span");
+  icon.className = "profile-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = `
+    <svg viewBox="0 0 48 48" focusable="false">
+      <circle cx="24" cy="18" r="9"></circle>
+      <path d="M9 42c2.5-8.5 8-13 15-13s12.5 4.5 15 13"></path>
+    </svg>
+  `;
+  return icon;
 }
 
 function renderSlot(button) {
