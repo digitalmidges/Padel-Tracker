@@ -101,6 +101,10 @@ const els = {
   editScoreA: document.querySelector("#edit-score-a"),
   editScoreB: document.querySelector("#edit-score-b"),
   editScoreNote: document.querySelector("#edit-score-note"),
+  gameDetail: document.querySelector("#game-detail"),
+  closeGameDetail: document.querySelector("#close-game-detail"),
+  gameDetailTitle: document.querySelector("#game-detail-title"),
+  gameDetailBody: document.querySelector("#game-detail-body"),
   deleteConfirm: document.querySelector("#delete-confirm"),
   closeDeleteConfirm: document.querySelector("#close-delete-confirm"),
   cancelDeleteMatch: document.querySelector("#cancel-delete-match"),
@@ -349,39 +353,52 @@ function matchItem(match) {
 function historyItem(match, gameNumber) {
   const item = document.createElement("li");
   item.className = "history-item";
-  const teamAWon = match.scoreA > match.scoreB;
-  const teamBWon = match.scoreB > match.scoreA;
-  const isDraw = match.scoreA === match.scoreB;
-  const resultText = isDraw
-    ? "Draw"
-    : teamAWon
-      ? `${teamLabel(match.teamA)} won`
-      : `${teamLabel(match.teamB)} won`;
-
-  item.classList.toggle("is-draw", isDraw);
-  item.innerHTML = `
-    <div class="history-meta">
-      <span>Game ${gameNumber}</span>
-      <span>${formatDate(match.createdAt)}</span>
-    </div>
-    <div class="history-team ${teamAWon ? "is-winner" : ""}">
-      <span class="team-kicker">Team A</span>
-      <strong>${teamLabel(match.teamA)}</strong>
-      <span class="winner-badge">${teamAWon ? "Winner" : isDraw ? "Draw" : ""}</span>
-    </div>
-    <div class="history-scoreline" aria-label="Final score">
-      <span class="${teamAWon ? "is-winning-score" : ""}">${match.scoreA}</span>
-      <small>vs</small>
-      <span class="${teamBWon ? "is-winning-score" : ""}">${match.scoreB}</span>
-    </div>
-    <div class="history-team ${teamBWon ? "is-winner" : ""}">
-      <span class="team-kicker">Team B</span>
-      <strong>${teamLabel(match.teamB)}</strong>
-      <span class="winner-badge">${teamBWon ? "Winner" : isDraw ? "Draw" : ""}</span>
-    </div>
-    <div class="history-result">${resultText}</div>
+  const button = document.createElement("button");
+  button.className = "history-row";
+  button.type = "button";
+  button.innerHTML = `
+    <span class="history-game-number">#${gameNumber}</span>
+    <span class="history-matchup">${matchLabel(match)}</span>
+    <span class="history-row-score">${match.scoreA}-${match.scoreB}</span>
+    <span class="history-row-winner">${matchWinnerLabel(match)}</span>
   `;
+  button.addEventListener("click", () => openGameDetail(match, gameNumber));
+  item.append(button);
   return item;
+}
+
+function matchWinnerLabel(match) {
+  if (match.scoreA === match.scoreB) return "Draw";
+  return match.scoreA > match.scoreB ? `${teamLabel(match.teamA)} won` : `${teamLabel(match.teamB)} won`;
+}
+
+function openGameDetail(match, gameNumber) {
+  els.gameDetailTitle.textContent = `Game ${gameNumber}`;
+  els.gameDetailBody.innerHTML = `
+    <dl>
+      <div>
+        <dt>Submitted</dt>
+        <dd>${formatDateTime(match.createdAt)}</dd>
+      </div>
+      <div>
+        <dt>Team A</dt>
+        <dd>${teamLabel(match.teamA)}</dd>
+      </div>
+      <div>
+        <dt>Team B</dt>
+        <dd>${teamLabel(match.teamB)}</dd>
+      </div>
+      <div>
+        <dt>Score</dt>
+        <dd>${match.scoreA}-${match.scoreB}</dd>
+      </div>
+      <div>
+        <dt>Result</dt>
+        <dd>${matchWinnerLabel(match)}</dd>
+      </div>
+    </dl>
+  `;
+  els.gameDetail.showModal();
 }
 
 function matchLabel(match) {
@@ -398,6 +415,16 @@ function formatDate(value) {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatDateTime(value) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
   }).format(new Date(value));
 }
 
@@ -913,6 +940,7 @@ els.unlockForm.addEventListener("submit", (event) => {
 els.editScoreA.addEventListener("input", (event) => updateEditScore("a", event.target.value));
 els.editScoreB.addEventListener("input", (event) => updateEditScore("b", event.target.value));
 els.closeScoreEditor.addEventListener("click", () => els.scoreEditor.close());
+els.closeGameDetail.addEventListener("click", () => els.gameDetail.close());
 els.scoreForm.addEventListener("submit", (event) => {
   event.preventDefault();
   saveEditedScore();
