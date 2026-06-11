@@ -680,7 +680,10 @@ function renderGeneratedMatches() {
 
     const teams = document.createElement("div");
     teams.className = "generated-teams";
-    teams.append(generatedTeamBlock("Team A", suggestion.teamA), generatedTeamBlock("Team B", suggestion.teamB));
+    const versus = document.createElement("div");
+    versus.className = "generated-versus";
+    versus.textContent = "VS";
+    teams.append(generatedTeamBlock("Team A", suggestion.teamA), versus, generatedTeamBlock("Team B", suggestion.teamB));
 
     const useButton = document.createElement("button");
     useButton.className = "ghost-button compact";
