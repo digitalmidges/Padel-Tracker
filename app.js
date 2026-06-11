@@ -758,6 +758,7 @@ function useGeneratedMatch(index) {
   state.draft.b2 = suggestion.teamB[1];
   saveState();
   renderAll();
+  showView("match");
   toast(`Court ${index + 1} loaded`);
 }
 

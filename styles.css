@@ -121,7 +121,7 @@ h3 {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  grid-template-columns: repeat(3, minmax(82px, 1fr));
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--line);
@@ -161,6 +161,7 @@ h3 {
 .recent-panel,
 .admin-gate,
 .admin-dashboard,
+#generator-view,
 #history-view {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -172,6 +173,7 @@ h3 {
 .recent-panel,
 .admin-gate,
 .admin-dashboard,
+#generator-view,
 #history-view {
   padding: 18px;
 }
@@ -428,9 +430,6 @@ h3 {
 .match-generator {
   display: grid;
   gap: 12px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
 }
 
 .segmented-control {
@@ -1077,7 +1076,7 @@ th {
   }
 
   .tabs {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .score-input {
@@ -1121,7 +1120,7 @@ th {
     bottom: 10px;
     left: 10px;
     z-index: 20;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     box-shadow: 0 10px 36px rgba(25, 32, 42, 0.2);
   }
 
