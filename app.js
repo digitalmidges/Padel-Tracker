@@ -148,7 +148,7 @@ function saveState() {
 function hydrateBundledPhotos(players) {
   return players.map((player) => ({
     ...player,
-    photo: player.photo || defaultPlayerPhotos[player.name] || ""
+    photo: defaultPlayerPhotos[player.name] || player.photo || ""
   }));
 }
 
