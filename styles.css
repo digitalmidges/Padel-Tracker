@@ -593,7 +593,9 @@ h3 {
 
 .generated-player-card {
   display: grid;
+  width: 100%;
   justify-items: center;
+  place-items: center;
   gap: 6px;
   min-width: 0;
   padding: 8px 6px;
@@ -607,6 +609,7 @@ h3 {
 .generated-player-card .avatar {
   width: 58px;
   height: 58px;
+  margin-inline: auto;
 }
 
 .generated-player-card strong {
@@ -626,8 +629,12 @@ h3 {
 
 .generated-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
+}
+
+.generated-actions .ghost-button {
+  width: 100%;
 }
 
 .ghost-button.compact {

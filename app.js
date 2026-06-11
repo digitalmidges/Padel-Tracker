@@ -703,13 +703,7 @@ function renderGeneratedMatches() {
       regenerateButton.textContent = "Regenerate this court";
       regenerateButton.addEventListener("click", () => regenerateGeneratedCourt(index));
 
-      const scrambleButton = document.createElement("button");
-      scrambleButton.className = "ghost-button compact";
-      scrambleButton.type = "button";
-      scrambleButton.textContent = "Scramble both courts";
-      scrambleButton.addEventListener("click", scrambleGeneratedCourts);
-
-      actions.append(regenerateButton, scrambleButton);
+      actions.append(regenerateButton);
     }
 
     card.append(topline, teams, actions);
@@ -800,20 +794,6 @@ function regenerateGeneratedCourt(index) {
     })[0];
 
   generatedMatchSuggestions[index] = bestAttempt;
-  renderGeneratedMatches();
-}
-
-function scrambleGeneratedCourts() {
-  if (generatedMatchSuggestions.length < 2) return;
-
-  const allIds = shuffle([...new Set(generatedMatchSuggestions.flatMap((suggestion) => [...suggestion.teamA, ...suggestion.teamB]))]);
-  generatedMatchSuggestions = [];
-
-  for (let court = 0; court < generatorGameCount; court += 1) {
-    const courtIds = allIds.splice(0, 4);
-    generatedMatchSuggestions.push(bestRandomMatchForPlayers(courtIds));
-  }
-
   renderGeneratedMatches();
 }
 
