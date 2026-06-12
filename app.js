@@ -63,6 +63,7 @@ let lastRemoteSignature = "";
 const pendingMatchIds = new Set();
 let generatorGameCount = 1;
 let generatorAvailableIds = null;
+let generatorMustPlayIds = new Set();
 let generatedMatchSuggestions = [];
 const failedPhotoUrls = new Set();
 
@@ -597,51 +598,95 @@ function ensureGeneratorAvailableIds() {
   const activeIds = new Set(activePlayers().map((player) => player.id));
   if (!generatorAvailableIds) {
     generatorAvailableIds = new Set(activeIds);
+    generatorMustPlayIds = new Set([...generatorMustPlayIds].filter((id) => activeIds.has(id)));
     return;
   }
 
   generatorAvailableIds = new Set([...generatorAvailableIds].filter((id) => activeIds.has(id)));
+  generatorMustPlayIds = new Set([...generatorMustPlayIds].filter((id) => activeIds.has(id) && generatorAvailableIds.has(id)));
 }
 
 function renderMatchGenerator() {
   ensureGeneratorAvailableIds();
   const availablePlayers = activePlayers();
   const selectedCount = generatorAvailableIds.size;
+  const mustPlayCount = generatorMustPlayIds.size;
   const neededPlayers = generatorGameCount * 4;
 
   els.generateOneGame.classList.toggle("is-active", generatorGameCount === 1);
   els.generateTwoGames.classList.toggle("is-active", generatorGameCount === 2);
   els.availableCount.textContent = `${selectedCount}/${availablePlayers.length} available`;
-  els.generatorNote.textContent = selectedCount >= neededPlayers
-    ? `${neededPlayers} players needed for ${generatorGameCount === 1 ? "1 court" : "2 courts"}.`
-    : `Select ${neededPlayers - selectedCount} more for ${generatorGameCount === 1 ? "1 court" : "2 courts"}.`;
-  els.generateRandomMatch.disabled = selectedCount < neededPlayers;
+  els.generatorNote.textContent = generatorNoteText(selectedCount, neededPlayers, mustPlayCount);
+  els.generateRandomMatch.disabled = selectedCount < neededPlayers || mustPlayCount > neededPlayers;
 
   els.availablePlayerGrid.replaceChildren(...availablePlayers.map((player) => {
     const button = document.createElement("button");
     const isSelected = generatorAvailableIds.has(player.id);
+    const isMustPlay = generatorMustPlayIds.has(player.id);
     button.className = "available-player-card";
     button.classList.toggle("is-selected", isSelected);
+    button.classList.toggle("is-must-play", isMustPlay);
     button.type = "button";
     button.setAttribute("aria-pressed", String(isSelected));
 
+    const mustPlayToggle = document.createElement("span");
+    mustPlayToggle.className = "must-play-toggle";
+    mustPlayToggle.textContent = "V";
+    mustPlayToggle.setAttribute("aria-hidden", "true");
+
     const name = document.createElement("span");
     name.textContent = firstName(player.name);
-    button.append(avatar(player), name);
+    button.append(mustPlayToggle, avatar(player), name);
     button.addEventListener("click", () => toggleGeneratorPlayer(player.id));
+    mustPlayToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleGeneratorMustPlay(player.id);
+    });
     return button;
   }));
 
   renderGeneratedMatches();
 }
 
+function generatorNoteText(selectedCount, neededPlayers, mustPlayCount) {
+  if (mustPlayCount > neededPlayers) {
+    return `Unmark ${mustPlayCount - neededPlayers} must-play player${mustPlayCount - neededPlayers === 1 ? "" : "s"}.`;
+  }
+
+  const courtText = generatorGameCount === 1 ? "1 court" : "2 courts";
+  if (selectedCount < neededPlayers) {
+    return `Select ${neededPlayers - selectedCount} more for ${courtText}.`;
+  }
+
+  return mustPlayCount
+    ? `${mustPlayCount} must play, ${neededPlayers} total needed for ${courtText}.`
+    : `${neededPlayers} players needed for ${courtText}.`;
+}
+
 function toggleGeneratorPlayer(playerId) {
   ensureGeneratorAvailableIds();
   if (generatorAvailableIds.has(playerId)) {
     generatorAvailableIds.delete(playerId);
+    generatorMustPlayIds.delete(playerId);
   } else {
     generatorAvailableIds.add(playerId);
   }
+  generatedMatchSuggestions = [];
+  renderMatchGenerator();
+}
+
+function toggleGeneratorMustPlay(playerId) {
+  ensureGeneratorAvailableIds();
+  if (!generatorAvailableIds.has(playerId)) {
+    generatorAvailableIds.add(playerId);
+  }
+
+  if (generatorMustPlayIds.has(playerId)) {
+    generatorMustPlayIds.delete(playerId);
+  } else {
+    generatorMustPlayIds.add(playerId);
+  }
+
   generatedMatchSuggestions = [];
   renderMatchGenerator();
 }
@@ -751,8 +796,12 @@ function generateRandomMatches() {
     toast(`Need ${neededPlayers} available players`);
     return;
   }
+  if (generatorMustPlayIds.size > neededPlayers) {
+    toast("Too many must-play players");
+    return;
+  }
 
-  const selectedIds = choosePlayersForGeneratedMatches(availableIds, neededPlayers);
+  const selectedIds = choosePlayersForGeneratedMatches(availableIds, neededPlayers, [...generatorMustPlayIds]);
   generatedMatchSuggestions = [];
   const remainingIds = selectedIds.slice();
 
@@ -779,10 +828,16 @@ function regenerateGeneratedCourt(index) {
   }
 
   const currentIds = new Set([...generatedMatchSuggestions[index].teamA, ...generatedMatchSuggestions[index].teamB]);
-  const selectedIds = choosePlayersForGeneratedMatches(candidateIds, 4);
+  const requiredIds = [...generatorMustPlayIds].filter((id) => candidateIds.includes(id));
+  if (requiredIds.length > 4) {
+    toast("Too many must-play players for this court");
+    return;
+  }
+
+  const selectedIds = choosePlayersForGeneratedMatches(candidateIds, 4, requiredIds);
   const attempts = [selectedIds];
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    attempts.push(choosePlayersForGeneratedMatches(candidateIds, 4));
+    attempts.push(choosePlayersForGeneratedMatches(candidateIds, 4, requiredIds));
   }
 
   const bestAttempt = attempts
@@ -801,9 +856,12 @@ function generatedPlayerSetChanged(suggestion, previousIds) {
   return [...suggestion.teamA, ...suggestion.teamB].some((id) => !previousIds.has(id));
 }
 
-function choosePlayersForGeneratedMatches(playerIds, neededPlayers) {
-  const shuffled = shuffle(playerIds);
-  if (playerIds.length <= neededPlayers) return shuffled.slice(0, neededPlayers);
+function choosePlayersForGeneratedMatches(playerIds, neededPlayers, requiredIds = []) {
+  const availableSet = new Set(playerIds);
+  const required = [...new Set(requiredIds)].filter((id) => availableSet.has(id));
+  const shuffled = shuffle(playerIds.filter((id) => !required.includes(id)));
+  if (required.length > neededPlayers) return [];
+  if (playerIds.length <= neededPlayers) return shuffle([...required, ...shuffled]).slice(0, neededPlayers);
 
   const gameCounts = new Map();
   state.matches.forEach((match) => {
@@ -812,9 +870,11 @@ function choosePlayersForGeneratedMatches(playerIds, neededPlayers) {
     });
   });
 
-  return shuffled
+  const optional = shuffled
     .sort((a, b) => (gameCounts.get(a) || 0) - (gameCounts.get(b) || 0) || Math.random() - 0.5)
-    .slice(0, neededPlayers);
+    .slice(0, neededPlayers - required.length);
+
+  return shuffle([...required, ...optional]);
 }
 
 function bestRandomMatchForPlayers(playerIds) {

@@ -482,6 +482,7 @@ h3 {
 }
 
 .available-player-card {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 7px;
@@ -500,6 +501,35 @@ h3 {
   border-color: rgba(28, 107, 85, 0.5);
   background: var(--green-soft);
   color: var(--green);
+}
+
+.must-play-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(25, 32, 42, 0.38);
+  font-size: 0.74rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.available-player-card.is-must-play {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(201, 130, 46, 0.18);
+}
+
+.available-player-card.is-must-play .must-play-toggle {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: #fff;
 }
 
 .available-player-card .avatar {
