@@ -159,18 +159,38 @@
             </div>
           </div>
 
-          <div class="insights" id="insights"></div>
-          <section class="admin-roster" aria-labelledby="admin-roster-title">
-            <div class="section-heading tight">
-              <div>
-                <p class="eyebrow">Roster control</p>
-                <h3 id="admin-roster-title">Who is playing?</h3>
-              </div>
-              <span class="counter" id="playing-count">0</span>
-            </div>
-            <div class="admin-player-grid" id="admin-player-grid"></div>
+          <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+            <button class="admin-tab is-active" type="button" data-admin-tab="leaderboard">Leaderboard</button>
+            <button class="admin-tab" type="button" data-admin-tab="awards">Awards</button>
+            <button class="admin-tab" type="button" data-admin-tab="players">Players</button>
+            <button class="admin-tab" type="button" data-admin-tab="games">Games</button>
+          </div>
+
+          <section class="admin-panel is-active" id="admin-leaderboard-panel">
+            <div class="admin-summary-strip" id="admin-summary-strip"></div>
+            <ol class="leaderboard-list" id="leaderboard-list"></ol>
           </section>
-          <section class="admin-games" aria-labelledby="admin-games-title">
+
+          <section class="admin-panel" id="admin-awards-panel">
+            <div class="awards-list" id="awards-list"></div>
+          </section>
+
+          <section class="admin-panel" id="admin-players-panel">
+            <section class="admin-roster" aria-labelledby="admin-roster-title">
+              <div class="section-heading tight">
+                <div>
+                  <p class="eyebrow">Roster control</p>
+                  <h3 id="admin-roster-title">Who is playing?</h3>
+                </div>
+                <span class="counter" id="playing-count">0</span>
+              </div>
+              <div class="admin-player-grid" id="admin-player-grid"></div>
+            </section>
+            <div class="expanded-player-list" id="admin-player-stats"></div>
+          </section>
+
+          <section class="admin-panel" id="admin-games-panel">
+            <section class="admin-games" aria-labelledby="admin-games-title">
             <div class="section-heading tight">
               <div>
                 <p class="eyebrow">Admin games</p>
@@ -179,49 +199,8 @@
               <span class="counter" id="admin-match-count">0</span>
             </div>
             <ol class="admin-match-list" id="admin-match-list"></ol>
+            </section>
           </section>
-          <div class="tables">
-            <section>
-              <h3>Players</h3>
-              <div class="table-wrap">
-                <table class="player-stats-table">
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th>Player</th>
-                      <th>Games</th>
-                      <th>W-D-L</th>
-                      <th>Win%</th>
-                      <th>Points</th>
-                      <th>Avg</th>
-                      <th>Partners</th>
-                      <th>Diff</th>
-                    </tr>
-                  </thead>
-                  <tbody id="player-stats"></tbody>
-                </table>
-              </div>
-            </section>
-            <section>
-              <h3>Couples</h3>
-              <div class="table-wrap">
-                <table class="pair-stats-table">
-                  <thead>
-                    <tr>
-                      <th>Couple</th>
-                      <th>Games</th>
-                      <th>W-D-L</th>
-                      <th>Win%</th>
-                      <th>Points</th>
-                      <th>Diff</th>
-                      <th>Avg</th>
-                    </tr>
-                  </thead>
-                  <tbody id="pair-stats"></tbody>
-                </table>
-              </div>
-            </section>
-          </div>
         </div>
       </section>
     </main>

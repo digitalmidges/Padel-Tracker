@@ -65,6 +65,7 @@ let generatorGameCount = 1;
 let generatorAvailableIds = null;
 let generatorMustPlayIds = new Set();
 let generatedMatchSuggestions = [];
+let activeAdminTab = "leaderboard";
 const failedPhotoUrls = new Set();
 
 const els = {
@@ -97,9 +98,12 @@ const els = {
   adminCode: document.querySelector("#admin-code"),
   adminGate: document.querySelector("#admin-gate"),
   adminDashboard: document.querySelector("#admin-dashboard"),
-  insights: document.querySelector("#insights"),
-  playerStats: document.querySelector("#player-stats"),
-  pairStats: document.querySelector("#pair-stats"),
+  adminTabs: document.querySelectorAll(".admin-tab"),
+  adminPanels: document.querySelectorAll(".admin-panel"),
+  adminSummaryStrip: document.querySelector("#admin-summary-strip"),
+  leaderboardList: document.querySelector("#leaderboard-list"),
+  awardsList: document.querySelector("#awards-list"),
+  adminPlayerStats: document.querySelector("#admin-player-stats"),
   adminPlayerGrid: document.querySelector("#admin-player-grid"),
   playingCount: document.querySelector("#playing-count"),
   adminMatchList: document.querySelector("#admin-match-list"),
@@ -1234,6 +1238,7 @@ function stats() {
     playerStats.set(player.id, {
       id: player.id,
       name: player.name,
+      playing: player.playing,
       games: 0,
       wins: 0,
       draws: 0,
@@ -1357,9 +1362,157 @@ function stats() {
 
 function renderAdmin() {
   const { rankedPlayers, rankedPairs, summary } = stats();
+  const awards = adminAwards(rankedPlayers, rankedPairs, summary);
+  renderAdminTabState();
+  renderAdminSummary(summary, rankedPlayers);
+  renderLeaderboard(rankedPlayers);
+  renderAwards(awards);
+  renderPlayerBreakdown(rankedPlayers, rankedPairs);
+  renderAdminMatches();
+}
+
+function renderAdminTabState() {
+  els.adminTabs.forEach((tab) => {
+    const isActive = tab.dataset.adminTab === activeAdminTab;
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  });
+  els.adminPanels.forEach((panel) => {
+    panel.classList.toggle("is-active", panel.id === `admin-${activeAdminTab}-panel`);
+  });
+}
+
+function renderAdminSummary(summary, rankedPlayers) {
+  const leader = rankedPlayers.find((player) => player.games > 0);
+  els.adminSummaryStrip.replaceChildren(
+    summaryPill("Games", summary.games || "0", summary.games ? `${summary.closeGames} close` : "No scores yet"),
+    summaryPill("Leader", leader?.name || "No data", leader ? `${formatDiff(leader.diff)} point diff` : "Save matches first"),
+    summaryPill("Avg Margin", summary.games ? formatOneDecimal(summary.avgMargin) : "0.0", "points per game"),
+    summaryPill("Biggest Win", summary.biggestWin ? `${summary.biggestWin.margin}` : "0", summary.biggestWin ? matchResultDetail(summary.biggestWin.match) : "No game yet")
+  );
+}
+
+function summaryPill(label, value, detail) {
+  const item = document.createElement("article");
+  item.className = "summary-pill";
+  item.innerHTML = `
+    <span>${label}</span>
+    <strong>${value}</strong>
+    <small>${detail}</small>
+  `;
+  return item;
+}
+
+function renderLeaderboard(rankedPlayers) {
+  els.leaderboardList.replaceChildren();
+  const activePlayers = rankedPlayers.filter((player) => player.games > 0);
+  const players = activePlayers.length ? activePlayers : rankedPlayers;
+
+  if (!players.length) {
+    els.leaderboardList.append(emptyMatchItem("No players yet."));
+    return;
+  }
+
+  players.forEach((player, index) => {
+    const item = document.createElement("li");
+    item.className = "leaderboard-item";
+    item.append(
+      rankBadge(index + 1),
+      avatar(playerById(player.id) || player),
+      statMain(`${player.name}`, `${recordLabel(player)} record - ${formatPercent(player.winRate)} win rate`),
+      metricStack("Diff", formatDiff(player.diff)),
+      metricStack("Avg", formatOneDecimal(player.avgDiff)),
+      metricStack("Pts", `${player.pointsFor}-${player.pointsAgainst}`)
+    );
+    els.leaderboardList.append(item);
+  });
+}
+
+function rankBadge(rank) {
+  const badge = document.createElement("span");
+  badge.className = "rank-badge";
+  badge.textContent = `#${rank}`;
+  return badge;
+}
+
+function statMain(title, detail) {
+  const wrap = document.createElement("div");
+  wrap.className = "stat-main";
+  const titleNode = document.createElement("strong");
+  titleNode.textContent = title;
+  const detailNode = document.createElement("span");
+  detailNode.textContent = detail;
+  wrap.append(titleNode, detailNode);
+  return wrap;
+}
+
+function metricStack(label, value) {
+  const wrap = document.createElement("div");
+  wrap.className = "metric-stack";
+  wrap.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+  return wrap;
+}
+
+function renderAwards(awards) {
+  els.awardsList.replaceChildren();
+  awards.forEach((award) => {
+    const card = document.createElement("article");
+    card.className = "award-card";
+    const avatars = insightAvatars(award.playerIds || []);
+    card.innerHTML = `
+      <div class="award-copy">
+        <span class="award-label">${award.label}</span>
+        <strong>${award.value}</strong>
+        <p>${award.detail}</p>
+        <small>${award.explanation}</small>
+      </div>
+    `;
+    if (avatars) card.prepend(avatars);
+    els.awardsList.append(card);
+  });
+}
+
+function renderPlayerBreakdown(rankedPlayers, rankedPairs) {
+  els.adminPlayerStats.replaceChildren();
+  rankedPlayers.forEach((player, index) => {
+    const bestPair = rankedPairs
+      .filter((pair) => pair.games > 0 && pair.ids.includes(player.id))
+      .sort((a, b) => b.diff - a.diff || b.winRate - a.winRate)[0];
+    const card = document.createElement("article");
+    card.className = "player-breakdown-card";
+    card.append(
+      rankBadge(index + 1),
+      avatar(playerById(player.id) || player),
+      statMain(player.name, player.playing ? "Playing today" : "Not playing"),
+      metricStack("Games", player.games),
+      metricStack("Record", recordLabel(player)),
+      metricStack("Diff", formatDiff(player.diff))
+    );
+
+    const expanded = document.createElement("div");
+    expanded.className = "player-expanded-data";
+    expanded.append(
+      expandedStat("Win rate", formatPercent(player.winRate), "How often this player finished on the winning team."),
+      expandedStat("Average diff", formatOneDecimal(player.avgDiff), "Average points gained or lost per game."),
+      expandedStat("Partners", player.uniquePartners, "How many different teammates this player had."),
+      expandedStat("Best couple", bestPair?.names || "No pair yet", bestPair ? `${formatDiff(bestPair.diff)} diff over ${bestPair.games} games` : "Needs at least one saved game.")
+    );
+    card.append(expanded);
+    els.adminPlayerStats.append(card);
+  });
+}
+
+function expandedStat(label, value, help) {
+  const item = document.createElement("div");
+  item.className = "expanded-stat";
+  item.innerHTML = `<span>${label}</span><strong>${value}</strong><small>${help}</small>`;
+  return item;
+}
+
+function adminAwards(rankedPlayers, rankedPairs, summary) {
   const winner = rankedPlayers.find((player) => player.games > 0);
   const anchor = rankedPlayers.slice().reverse().find((player) => player.games > 0);
-  const mostGames = rankedPlayers.slice().sort((a, b) => b.games - a.games || b.diff - a.diff)[0];
+  const mostGames = rankedPlayers.filter((player) => player.games > 0).sort((a, b) => b.games - a.games || b.diff - a.diff)[0];
   const bestPair = rankedPairs.find((pair) => pair.games > 0);
   const bestWinRate = rankedPlayers
     .filter((player) => player.games > 0)
@@ -1380,52 +1533,24 @@ function renderAdmin() {
     .filter((player) => player.games > 0)
     .sort((a, b) => Math.abs(a.avgDiff) - Math.abs(b.avgDiff) || b.games - a.games)[0];
 
-  els.insights.replaceChildren(
-    insight("Tournament Pulse", summary.games ? `${summary.games} games` : "No data", summary.games ? `${summary.closeGames} close, ${summary.decisiveGames} decisive, ${formatOneDecimal(summary.avgMargin)} avg margin` : "Save matches first", "Overall tournament shape: close games are decided by 4 points or less; decisive games are 10+ point margins."),
-    insight("Leader", winner?.name || "No data", winner ? `${formatDiff(winner.diff)} diff, ${formatPercent(winner.winRate)} wins` : "Save matches first", "Top ranked player by total point difference, then wins and points scored.", { playerIds: winner ? [winner.id] : [] }),
-    insight("Hot Hand", bestWinRate?.name || "No data", bestWinRate ? `${recordLabel(bestWinRate)}, ${formatPercent(bestWinRate.winRate)} win rate` : "Save matches first", "Best win rate among players who have played at least one game.", { playerIds: bestWinRate ? [bestWinRate.id] : [] }),
-    insight("Best Couple", bestPair?.names || "No data", bestPair ? `${formatDiff(bestPair.diff)} diff over ${bestPair.games} games` : "Save matches first", "Best two-player partnership by total point difference.", { playerIds: bestPair?.ids || [] }),
-    insight("Most Clinical", mostClinical?.name || "No data", mostClinical ? `${formatOneDecimal(mostClinical.avgDiff)} avg diff per game` : "Save matches first", "Highest average point margin per game. This rewards efficient wins.", { playerIds: mostClinical ? [mostClinical.id] : [] }),
-    insight("Clutch", clutchPlayer?.name || "No close games", clutchPlayer ? `${clutchPlayer.closeWins}/${clutchPlayer.closeGames} close games won` : "Margin of 4 or less", "Best performer in close games, where the final margin is 4 points or less.", { playerIds: clutchPlayer ? [clutchPlayer.id] : [] }),
-    insight("Mix Master", socialPlayer?.name || "No data", socialPlayer ? `${socialPlayer.uniquePartners} partners, ${socialPlayer.games} games` : "Save matches first", "Player who has teamed up with the most different partners.", { playerIds: socialPlayer ? [socialPlayer.id] : [] }),
-    insight("Best Avg Couple", bestAvgPair?.names || "No data", bestAvgPair ? `${formatOneDecimal(bestAvgPair.avgDiff)} avg diff, ${formatPercent(bestAvgPair.winRate)} wins` : "Save matches first", "Partnership with the best average point difference per game.", { playerIds: bestAvgPair?.ids || [] }),
-    insight("Biggest Win", summary.biggestWin ? `${summary.biggestWin.margin} points` : "No data", summary.biggestWin ? matchResultDetail(summary.biggestWin.match) : "Save matches first", "The single largest winning margin in one saved game.", { playerIds: summary.biggestWin ? winningTeam(summary.biggestWin.match) : [] }),
-    insight("Steady Hand", steadyHand?.name || "No data", steadyHand ? `${formatOneDecimal(steadyHand.avgDiff)} avg diff, ${steadyHand.games} games` : "Save matches first", "Most balanced player: average point difference closest to zero.", { playerIds: steadyHand ? [steadyHand.id] : [] }),
-    insight("Most Games", mostGames?.name || "No data", mostGames ? `${mostGames.games} games played` : "Save matches first", "Player who appeared in the most saved games.", { playerIds: mostGames ? [mostGames.id] : [] }),
-    insight("Anchor", anchor?.name || "No data", anchor ? `${formatDiff(anchor.diff)} diff. Needs a comeback arc.` : "Save matches first", "Lowest ranked player by point difference among players who have played.", { playerIds: anchor ? [anchor.id] : [] })
-  );
+  return [
+    award("Tournament Pulse", summary.games ? `${summary.games} games` : "No data", summary.games ? `${summary.closeGames} close games - ${summary.decisiveGames} decisive` : "Save matches first", "Close games are decided by 4 points or less; decisive games are 10+ point margins."),
+    award("Leaderboard King", winner?.name || "No data", winner ? `${formatDiff(winner.diff)} diff - ${formatPercent(winner.winRate)} wins` : "Save matches first", "Top player by total point difference, then wins and points scored.", winner ? [winner.id] : []),
+    award("Hot Hand", bestWinRate?.name || "No data", bestWinRate ? `${recordLabel(bestWinRate)} - ${formatPercent(bestWinRate.winRate)} win rate` : "Save matches first", "Best win rate among players who have at least one game.", bestWinRate ? [bestWinRate.id] : []),
+    award("Best Couple", bestPair?.names || "No data", bestPair ? `${formatDiff(bestPair.diff)} diff over ${bestPair.games} games` : "Save matches first", "The partnership with the best total point difference.", bestPair?.ids || []),
+    award("Best Average Couple", bestAvgPair?.names || "No data", bestAvgPair ? `${formatOneDecimal(bestAvgPair.avgDiff)} avg diff - ${formatPercent(bestAvgPair.winRate)} wins` : "Save matches first", "The pair with the best average point difference per game.", bestAvgPair?.ids || []),
+    award("Most Clinical", mostClinical?.name || "No data", mostClinical ? `${formatOneDecimal(mostClinical.avgDiff)} avg diff per game` : "Save matches first", "Highest average point margin per game.", mostClinical ? [mostClinical.id] : []),
+    award("Clutch Player", clutchPlayer?.name || "No close games", clutchPlayer ? `${clutchPlayer.closeWins}/${clutchPlayer.closeGames} close games won` : "Margin of 4 or less", "Best performer in tight games.", clutchPlayer ? [clutchPlayer.id] : []),
+    award("Mix Master", socialPlayer?.name || "No data", socialPlayer ? `${socialPlayer.uniquePartners} partners - ${socialPlayer.games} games` : "Save matches first", "Player who teamed up with the most different partners.", socialPlayer ? [socialPlayer.id] : []),
+    award("Biggest Win", summary.biggestWin ? `${summary.biggestWin.margin} points` : "No data", summary.biggestWin ? matchResultDetail(summary.biggestWin.match) : "Save matches first", "The single largest winning margin.", summary.biggestWin ? winningTeam(summary.biggestWin.match) : []),
+    award("Steady Hand", steadyHand?.name || "No data", steadyHand ? `${formatOneDecimal(steadyHand.avgDiff)} avg diff - ${steadyHand.games} games` : "Save matches first", "Most balanced player: average point difference closest to zero.", steadyHand ? [steadyHand.id] : []),
+    award("Most Games", mostGames?.name || "No data", mostGames ? `${mostGames.games} games played` : "Save matches first", "Player who appeared in the most saved games.", mostGames ? [mostGames.id] : []),
+    award("Anchor", anchor?.name || "No data", anchor ? `${formatDiff(anchor.diff)} diff` : "Save matches first", "Lowest ranked player by point difference among players who played.", anchor ? [anchor.id] : [])
+  ];
+}
 
-  els.playerStats.replaceChildren(...rankedPlayers.map((player, index) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${index + 1}</td>
-      <td>${player.name}</td>
-      <td>${player.games}</td>
-      <td>${recordLabel(player)}</td>
-      <td>${formatPercent(player.winRate)}</td>
-      <td>${player.pointsFor}-${player.pointsAgainst}</td>
-      <td>${formatOneDecimal(player.avgDiff)}</td>
-      <td>${player.uniquePartners}</td>
-      <td>${formatDiff(player.diff)}</td>
-    `;
-    return row;
-  }));
-
-  els.pairStats.replaceChildren(...rankedPairs.map((pair) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${pair.names}</td>
-      <td>${pair.games}</td>
-      <td>${recordLabel(pair)}</td>
-      <td>${formatPercent(pair.winRate)}</td>
-      <td>${pair.pointsFor}-${pair.pointsAgainst}</td>
-      <td>${formatDiff(pair.diff)}</td>
-      <td>${formatOneDecimal(pair.avgDiff)}</td>
-    `;
-    return row;
-  }));
-
-  renderAdminMatches();
+function award(label, value, detail, explanation, playerIds = []) {
+  return { label, value, detail, explanation, playerIds };
 }
 
 function renderAdminMatches() {
@@ -1713,6 +1838,13 @@ function openAdminBackdoor() {
 els.tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     showView(tab.dataset.view);
+  });
+});
+
+els.adminTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    activeAdminTab = tab.dataset.adminTab;
+    renderAdminTabState();
   });
 });
 
