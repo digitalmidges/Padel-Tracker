@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Padel Tracker">
     <title>Padel Tournament Tracker</title>
-    <link rel="stylesheet" href="styles.css?v=20260826-sitting2">
+    <link rel="stylesheet" href="styles.css?v=20260826-scope">
   </head>
   <body>
     <main class="app-shell">
@@ -172,6 +172,11 @@
             </div>
           </div>
 
+          <div class="admin-scope">
+            <span class="admin-scope-label">Showing</span>
+            <div class="segmented-control roster-mode" id="roster-mode" aria-label="Player group"></div>
+          </div>
+
           <div class="admin-tabs" role="tablist" aria-label="Admin sections">
             <button class="admin-tab is-active" type="button" data-admin-tab="leaderboard">Leaderboard</button>
             <button class="admin-tab" type="button" data-admin-tab="awards">Awards</button>
@@ -195,10 +200,7 @@
                   <p class="eyebrow">Roster control</p>
                   <h3 id="admin-roster-title">Who is playing?</h3>
                 </div>
-                <div class="roster-heading-controls">
-                  <div class="segmented-control roster-mode" id="roster-mode" aria-label="Roster group"></div>
-                  <span class="counter" id="playing-count">0</span>
-                </div>
+                <span class="counter" id="playing-count">0</span>
               </div>
               <form class="add-player-form" id="add-player-form">
                 <input id="new-player-name" type="text" placeholder="New player name" aria-label="New player name" autocomplete="off" maxlength="30">
@@ -294,6 +296,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=20260826-groupstats"></script>
+    <script type="module" src="app.js?v=20260826-scope"></script>
   </body>
 </html>

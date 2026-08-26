@@ -1,4 +1,4 @@
-import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260826-archives";
+import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260826-scope";
 
 const activeTournamentId = firebaseOptions.tournamentId || "main";
 const STORAGE_KEY = activeTournamentId === "main"
@@ -1091,7 +1091,7 @@ function setRosterMode(mode) {
   adminRosterMode = mode;
   setNewPlayerGroupChoice(mode);
   renderAdminRoster();
-  renderPlayerBreakdown(...playerBreakdownData());
+  renderAdmin();
 }
 
 function setNewPlayerGroupChoice(group) {
@@ -1538,9 +1538,22 @@ function saveMatch() {
   toast("Match saved");
 }
 
-function stats() {
+function groupMatches(groupName) {
+  if (!groupName) return state.matches;
+
+  const groupIds = new Set(state.players
+    .filter((player) => playerGroupName(player) === groupName)
+    .map((player) => player.id));
+  return state.matches.filter((match) => [...match.teamA, ...match.teamB].some((id) => groupIds.has(id)));
+}
+
+function stats(groupName = null) {
+  const scopedPlayers = groupName
+    ? state.players.filter((player) => playerGroupName(player) === groupName)
+    : state.players;
+  const scopedMatches = groupMatches(groupName);
   const playerStats = new Map();
-  state.players.forEach((player) => {
+  scopedPlayers.forEach((player) => {
     playerStats.set(player.id, {
       id: player.id,
       name: player.name,
@@ -1563,7 +1576,7 @@ function stats() {
 
   const pairStats = new Map();
   const summary = {
-    games: state.matches.length,
+    games: scopedMatches.length,
     closeGames: 0,
     draws: 0,
     decisiveGames: 0,
@@ -1573,7 +1586,7 @@ function stats() {
     closestGame: null
   };
 
-  state.matches.forEach((match) => {
+  scopedMatches.forEach((match) => {
     const margin = Math.abs(match.scoreA - match.scoreB);
     summary.totalMargin += margin;
     summary.totalPoints += match.scoreA + match.scoreB;
@@ -1668,7 +1681,7 @@ function stats() {
 }
 
 function renderAdmin() {
-  const { rankedPlayers, rankedPairs, summary } = stats();
+  const { rankedPlayers, rankedPairs, summary } = stats(adminRosterMode);
   const awards = adminAwards(rankedPlayers, rankedPairs, summary);
   renderAdminTabState();
   renderAdminSummary(summary, rankedPlayers);
@@ -1779,14 +1792,9 @@ function renderAwards(awards) {
   });
 }
 
-function playerBreakdownData() {
-  const { rankedPlayers, rankedPairs } = stats();
-  return [rankedPlayers, rankedPairs];
-}
-
 function renderPlayerBreakdown(rankedPlayers, rankedPairs) {
   els.adminPlayerStats.replaceChildren();
-  const groupPlayers = rankedPlayers.filter((player) => player.group === adminRosterMode);
+  const groupPlayers = rankedPlayers;
 
   if (!groupPlayers.length) {
     const empty = document.createElement("p");
@@ -1876,16 +1884,17 @@ function award(label, value, detail, explanation, playerIds = []) {
 }
 
 function renderAdminMatches() {
+  const matches = groupMatches(adminRosterMode);
   els.adminMatchList.replaceChildren();
-  els.adminMatchCount.textContent = state.matches.length;
+  els.adminMatchCount.textContent = matches.length;
 
-  if (!state.matches.length) {
-    els.adminMatchList.append(emptyMatchItem("No games to edit yet."));
+  if (!matches.length) {
+    els.adminMatchList.append(emptyMatchItem(`No ${adminRosterMode} games to edit yet.`));
     return;
   }
 
-  state.matches.slice().reverse().forEach((match, index) => {
-    const item = historyItem(match, state.matches.length - index);
+  matches.slice().reverse().forEach((match, index) => {
+    const item = historyItem(match, matches.length - index);
     item.classList.add("admin-history-item");
 
     const actions = document.createElement("div");
