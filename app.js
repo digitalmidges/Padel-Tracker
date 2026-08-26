@@ -42,7 +42,8 @@ const defaultPlayerPhotos = {
   "Ariel Avitan": "images/ariel-avitan.jpg",
   "Eitan": "images/eitan.jpg",
   "Ofir": "images/ofir.jpg",
-  "Oded": "images/oded-austin.jpg"
+  "Oded": "images/oded-austin.jpg",
+  "Noam Avigdor": "images/noam-avigdor.jpg"
 };
 
 const legacySampleNames = [
