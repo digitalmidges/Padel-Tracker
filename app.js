@@ -86,7 +86,6 @@ let generatorMustPlayIds = new Set();
 let generatedMatchSuggestions = [];
 let activeAdminTab = "leaderboard";
 let adminRosterMode = "Austin";
-let newPlayerGroupChoice = "Austin";
 let historyTournamentId = "current";
 const archiveCache = new Map();
 const failedPhotoUrls = new Set();
@@ -133,7 +132,6 @@ const els = {
   playingCount: document.querySelector("#playing-count"),
   addPlayerForm: document.querySelector("#add-player-form"),
   newPlayerName: document.querySelector("#new-player-name"),
-  newPlayerGroup: document.querySelector("#new-player-group"),
   rosterMode: document.querySelector("#roster-mode"),
   adminMatchList: document.querySelector("#admin-match-list"),
   adminMatchCount: document.querySelector("#admin-match-count"),
@@ -1089,16 +1087,8 @@ function rosterGroupNames() {
 
 function setRosterMode(mode) {
   adminRosterMode = mode;
-  setNewPlayerGroupChoice(mode);
   renderAdminRoster();
   renderAdmin();
-}
-
-function setNewPlayerGroupChoice(group) {
-  newPlayerGroupChoice = group;
-  els.newPlayerGroup.querySelectorAll("button").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.group === group);
-  });
 }
 
 function renderAdminRoster() {
@@ -1119,6 +1109,7 @@ function renderAdminRoster() {
   const groupPlayers = state.players.filter((player) => playerGroupName(player) === adminRosterMode);
   const playingCount = groupPlayers.filter((player) => player.playing).length;
   els.playingCount.textContent = `${playingCount}/${groupPlayers.length}`;
+  els.newPlayerName.placeholder = `New ${adminRosterMode} player name`;
 
   els.adminPlayerGrid.replaceChildren();
   if (!groupPlayers.length) {
@@ -1176,12 +1167,12 @@ function addPlayer() {
     name,
     photo: defaultPlayerPhotos[name] || "",
     playing: true,
-    group: newPlayerGroupChoice
+    group: adminRosterMode
   });
   els.newPlayerName.value = "";
   savePlayersSharedState();
   renderAll();
-  toast(`${name} added to ${newPlayerGroupChoice}`);
+  toast(`${name} added to ${adminRosterMode}`);
 }
 
 function togglePlayerPlaying(playerId) {
@@ -2217,9 +2208,6 @@ els.addPlayerForm.addEventListener("submit", (event) => {
   addPlayer();
 });
 
-els.newPlayerGroup.querySelectorAll("button").forEach((button) => {
-  button.addEventListener("click", () => setNewPlayerGroupChoice(button.dataset.group));
-});
 
 let titleTapCount = 0;
 let titleTapTimer = null;
