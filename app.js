@@ -1,4 +1,4 @@
-import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260826-analytics";
+import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260826-rename";
 
 const activeTournamentId = firebaseOptions.tournamentId || "main";
 const STORAGE_KEY = activeTournamentId === "main"
@@ -66,12 +66,14 @@ const defaultPlayers = [
   name,
   photo: defaultPlayerPhotos[name] || "",
   playing: false,
-  group: "Israel"
+  group: "Israel",
+  bundledName: name
 }));
 
 let state = loadState();
 let selectedSlot = null;
 let editingMatchId = null;
+let editingPlayerId = null;
 let pendingDeleteMatchId = null;
 let remoteReady = false;
 let remoteSaveTimer = null;
@@ -140,6 +142,11 @@ const els = {
   resetMatches: document.querySelector("#reset-matches"),
   backPublic: document.querySelector("#back-public"),
   lockAdmin: document.querySelector("#lock-admin"),
+  playerEditor: document.querySelector("#player-editor"),
+  playerForm: document.querySelector("#player-form"),
+  editPlayerName: document.querySelector("#edit-player-name"),
+  playerEditorNote: document.querySelector("#player-editor-note"),
+  closePlayerEditor: document.querySelector("#close-player-editor"),
   scoreEditor: document.querySelector("#score-editor"),
   closeScoreEditor: document.querySelector("#close-score-editor"),
   scoreForm: document.querySelector("#score-form"),
@@ -506,21 +513,23 @@ function hydrateBundledPhotos(players) {
     ...player,
     photo: defaultPlayerPhotos[player.name] || player.photo || "",
     playing: typeof player.playing === "boolean" ? player.playing : true,
-    group: player.group || "Israel"
+    group: player.group || "Israel",
+    bundledName: player.bundledName || (defaultPlayerNames.includes(player.name) ? player.name : "")
   }));
 }
 
 function syncBundledRoster(players) {
   const hydratedPlayers = hydrateBundledPhotos(players);
-  const existingNames = new Set(hydratedPlayers.map((player) => player.name));
+  const existingBundledNames = new Set(hydratedPlayers.map((player) => player.bundledName || player.name));
   const missingPlayers = defaultPlayerNames
-    .filter((name) => !existingNames.has(name))
+    .filter((name) => !existingBundledNames.has(name))
     .map((name) => ({
       id: crypto.randomUUID(),
       name,
       photo: defaultPlayerPhotos[name] || "",
       playing: false,
-      group: "Israel"
+      group: "Israel",
+      bundledName: name
     }));
 
   return [...hydratedPlayers, ...missingPlayers];
@@ -1146,9 +1155,59 @@ function adminPlayerCard(player) {
   toggle.className = "playing-toggle";
   toggle.textContent = player.playing ? "Playing" : "Not playing";
 
-  card.append(avatar(player), details, toggle);
+  const edit = document.createElement("span");
+  edit.className = "player-edit";
+  edit.setAttribute("role", "button");
+  edit.setAttribute("tabindex", "0");
+  edit.setAttribute("aria-label", `Edit ${player.name}`);
+  edit.textContent = "Edit";
+  edit.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openPlayerEditor(player.id);
+  });
+  edit.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    openPlayerEditor(player.id);
+  });
+
+  card.append(avatar(player), details, toggle, edit);
   card.addEventListener("click", () => togglePlayerPlaying(player.id));
   return card;
+}
+
+function openPlayerEditor(playerId) {
+  const player = playerById(playerId);
+  if (!player) return;
+
+  editingPlayerId = playerId;
+  els.editPlayerName.value = player.name;
+  els.playerEditorNote.textContent = `${playerGroupName(player)} roster. Stats and saved games follow the new name.`;
+  els.playerEditor.showModal();
+}
+
+function savePlayerName() {
+  const player = playerById(editingPlayerId);
+  if (!player) return;
+
+  const name = els.editPlayerName.value.trim();
+  if (!name) {
+    toast("Enter a player name");
+    return;
+  }
+  if (state.players.some((other) => other.id !== player.id && other.name.toLowerCase() === name.toLowerCase())) {
+    toast("Player already exists");
+    return;
+  }
+
+  player.name = name;
+  player.photo = defaultPlayerPhotos[name] || player.photo || "";
+  els.playerEditor.close();
+  editingPlayerId = null;
+  savePlayersSharedState();
+  renderAll();
+  toast("Name updated");
 }
 
 function addPlayer() {
@@ -2228,6 +2287,11 @@ els.appTitle.addEventListener("click", () => {
 els.editScoreA.addEventListener("input", (event) => updateEditScore("a", event.target.value));
 els.editScoreB.addEventListener("input", (event) => updateEditScore("b", event.target.value));
 els.closeScoreEditor.addEventListener("click", () => els.scoreEditor.close());
+els.closePlayerEditor.addEventListener("click", () => els.playerEditor.close());
+els.playerForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  savePlayerName();
+});
 els.closeGameDetail.addEventListener("click", () => els.gameDetail.close());
 els.scoreForm.addEventListener("submit", (event) => {
   event.preventDefault();
