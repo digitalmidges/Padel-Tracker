@@ -817,6 +817,42 @@ function renderGeneratedMatches() {
     card.append(topline, teams, actions);
     els.generatedMatches.append(card);
   });
+
+  renderSittingOut();
+}
+
+function renderSittingOut() {
+  const playingIds = new Set(generatedMatchSuggestions.flatMap((suggestion) => [...suggestion.teamA, ...suggestion.teamB]));
+  const sittingOut = [...generatorAvailableIds]
+    .filter((id) => !playingIds.has(id))
+    .map(playerById)
+    .filter(Boolean);
+
+  if (!sittingOut.length) return;
+
+  const panel = document.createElement("section");
+  panel.className = "sitting-out";
+
+  const title = document.createElement("h4");
+  title.className = "sitting-out-title";
+  title.textContent = "Sitting out this round";
+  const count = document.createElement("span");
+  count.textContent = `${sittingOut.length} waiting`;
+  title.append(count);
+
+  const list = document.createElement("div");
+  list.className = "sitting-out-list";
+  sittingOut.forEach((player) => {
+    const item = document.createElement("span");
+    item.className = "sitting-out-player";
+    const name = document.createElement("strong");
+    name.textContent = shortName(player);
+    item.append(avatar(player), name);
+    list.append(item);
+  });
+
+  panel.append(title, list);
+  els.generatedMatches.append(panel);
 }
 
 function generatedTeamBlock(label, team) {

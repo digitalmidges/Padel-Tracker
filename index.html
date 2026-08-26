@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Padel Tracker">
     <title>Padel Tournament Tracker</title>
-    <link rel="stylesheet" href="styles.css?v=20260826-smart">
+    <link rel="stylesheet" href="styles.css?v=20260826-sitting2">
   </head>
   <body>
     <main class="app-shell">
@@ -118,8 +118,14 @@
             <div class="available-player-grid" id="available-player-grid"></div>
           </div>
           <div class="generator-buttons">
-            <button class="primary-button" id="generate-smart-match" type="button">Generate Smart Match</button>
-            <button class="ghost-button" id="generate-random-match" type="button">Generate Random Match</button>
+            <div class="generator-action">
+              <button class="primary-button" id="generate-smart-match" type="button">Generate Smart Match</button>
+              <small>Tries to build a game that has never been played before.</small>
+            </div>
+            <div class="generator-action">
+              <button class="ghost-button" id="generate-random-match" type="button">Generate Random Match</button>
+              <small>Picks any fair mix from the available players.</small>
+            </div>
           </div>
           <div class="generated-matches" id="generated-matches" aria-live="polite"></div>
         </section>
@@ -288,6 +294,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=20260826-smart"></script>
+    <script type="module" src="app.js?v=20260826-sitting2"></script>
   </body>
 </html>

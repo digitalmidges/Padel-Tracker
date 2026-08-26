@@ -492,8 +492,70 @@ h3 {
 
 .generator-buttons {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.generator-action {
+  display: grid;
+  gap: 6px;
+}
+
+.generator-action button {
+  width: 100%;
+}
+
+.generator-action small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.sitting-out {
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #f9faf7;
+}
+
+.sitting-out-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sitting-out-title span {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sitting-out-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sitting-out-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.sitting-out-player .avatar {
+  width: 30px;
+  height: 30px;
 }
 
 .generator-meta strong {
@@ -1545,9 +1607,6 @@ th {
     grid-column: 1 / -1;
   }
 
-  .generator-buttons {
-    grid-template-columns: 1fr;
-  }
 
   .app-shell {
     padding: 14px;
