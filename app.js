@@ -1,4 +1,4 @@
-import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260826-scope";
+import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260826-analytics";
 
 const activeTournamentId = firebaseOptions.tournamentId || "main";
 const STORAGE_KEY = activeTournamentId === "main"
@@ -1716,11 +1716,10 @@ function summaryPill(label, value, detail) {
 
 function renderLeaderboard(rankedPlayers) {
   els.leaderboardList.replaceChildren();
-  const activePlayers = rankedPlayers.filter((player) => player.games > 0);
-  const players = activePlayers.length ? activePlayers : rankedPlayers;
+  const players = rankedPlayers.filter((player) => player.games > 0);
 
   if (!players.length) {
-    els.leaderboardList.append(emptyMatchItem("No players yet."));
+    els.leaderboardList.append(emptyMatchItem(`No ${adminRosterMode} games played yet.`));
     return;
   }
 
@@ -1785,12 +1784,12 @@ function renderAwards(awards) {
 
 function renderPlayerBreakdown(rankedPlayers, rankedPairs) {
   els.adminPlayerStats.replaceChildren();
-  const groupPlayers = rankedPlayers;
+  const groupPlayers = rankedPlayers.filter((player) => player.games > 0);
 
   if (!groupPlayers.length) {
     const empty = document.createElement("p");
     empty.className = "roster-empty";
-    empty.textContent = `No ${adminRosterMode} player stats yet.`;
+    empty.textContent = `No ${adminRosterMode} player has played a game yet.`;
     els.adminPlayerStats.append(empty);
     return;
   }
