@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Padel Tracker">
     <title>Padel Tournament Tracker</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260826-smart">
   </head>
   <body>
     <main class="app-shell">
@@ -102,19 +102,25 @@
               <p class="eyebrow">Next round</p>
               <h2 id="generator-title">Random Match</h2>
             </div>
-            <div class="segmented-control" aria-label="Number of games">
-              <button class="is-active" id="generate-one-game" type="button" data-games="1">1 Court</button>
-              <button id="generate-two-games" type="button" data-games="2">2 Courts</button>
+            <div class="segmented-control court-count" id="court-count" aria-label="Number of courts">
+              <button class="is-active" type="button" data-games="1">1 Court</button>
+              <button type="button" data-games="2">2 Courts</button>
+              <button type="button" data-games="3">3 Courts</button>
+              <button type="button" data-games="4">4 Courts</button>
             </div>
           </div>
           <div class="generator-available">
             <div class="generator-meta">
               <strong id="available-count">0 available</strong>
               <span id="generator-note">Select who can play now.</span>
+              <button class="ghost-button compact" id="toggle-all-players" type="button">Select all</button>
             </div>
             <div class="available-player-grid" id="available-player-grid"></div>
           </div>
-          <button class="ghost-button" id="generate-random-match" type="button">Generate Random Match</button>
+          <div class="generator-buttons">
+            <button class="primary-button" id="generate-smart-match" type="button">Generate Smart Match</button>
+            <button class="ghost-button" id="generate-random-match" type="button">Generate Random Match</button>
+          </div>
           <div class="generated-matches" id="generated-matches" aria-live="polite"></div>
         </section>
       </section>
@@ -127,6 +133,7 @@
           </div>
           <span class="counter" id="history-count">0</span>
         </div>
+        <div class="segmented-control history-switcher" id="history-switcher" aria-label="Tournament" hidden></div>
         <ol class="history-list" id="history-list"></ol>
       </section>
 
@@ -182,9 +189,20 @@
                   <p class="eyebrow">Roster control</p>
                   <h3 id="admin-roster-title">Who is playing?</h3>
                 </div>
-                <span class="counter" id="playing-count">0</span>
+                <div class="roster-heading-controls">
+                  <div class="segmented-control roster-mode" id="roster-mode" aria-label="Roster group"></div>
+                  <span class="counter" id="playing-count">0</span>
+                </div>
               </div>
-              <div class="admin-player-grid" id="admin-player-grid"></div>
+              <form class="add-player-form" id="add-player-form">
+                <input id="new-player-name" type="text" placeholder="New player name" aria-label="New player name" autocomplete="off" maxlength="30">
+                <div class="segmented-control group-picker" id="new-player-group" aria-label="Player group">
+                  <button type="button" data-group="Austin" class="is-active">Austin</button>
+                  <button type="button" data-group="Israel">Israel</button>
+                </div>
+                <button class="primary-button compact" type="submit">Add Player</button>
+              </form>
+              <div class="roster-groups" id="admin-player-grid"></div>
             </section>
             <div class="expanded-player-list" id="admin-player-stats"></div>
           </section>
@@ -270,6 +288,6 @@
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=20260611-sync-live"></script>
+    <script type="module" src="app.js?v=20260826-smart"></script>
   </body>
 </html>

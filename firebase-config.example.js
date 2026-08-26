@@ -9,5 +9,9 @@ export const firebaseConfig = {
 
 export const firebaseOptions = {
   enabled: true,
-  tournamentId: "main"
+  tournamentId: "main",
+  archivedTournaments: [
+    // Past tournaments shown read-only in the History tab, e.g.
+    // { id: "main", name: "June 2026 · Israel" }
+  ]
 };

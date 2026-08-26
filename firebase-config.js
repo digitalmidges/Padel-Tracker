@@ -10,5 +10,8 @@ export const firebaseConfig = {
 
 export const firebaseOptions = {
   enabled: true,
-  tournamentId: "main"
+  tournamentId: "aug-2026",
+  archivedTournaments: [
+    { id: "main", name: "June 2026 · Israel" }
+  ]
 };

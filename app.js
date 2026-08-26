@@ -1,6 +1,9 @@
-import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260611-firebase-live";
+import { firebaseConfig, firebaseOptions } from "./firebase-config.js?v=20260826-archives";
 
-const STORAGE_KEY = "padel-tracker-state-v1";
+const activeTournamentId = firebaseOptions.tournamentId || "main";
+const STORAGE_KEY = activeTournamentId === "main"
+  ? "padel-tracker-state-v1"
+  : `padel-tracker-state-v1-${activeTournamentId}`;
 const ADMIN_CODE = "2468";
 const REMOTE_POLL_INTERVAL = 2500;
 
@@ -27,7 +30,19 @@ const defaultPlayerPhotos = {
   "קובי": "images/kobi.jpeg",
   "פרידמן": "images/fridman.jpeg",
   "אלירן": "images/eliran.jpeg",
-  "שחר": "images/shahar.png"
+  "שחר": "images/shahar.png",
+  "Or Frenkel": "images/or-frenkel.jpg",
+  "Gut Ruck": "images/gut-ruck.jpg",
+  "Maor Sabag": "images/maor-sabag.jpg",
+  "Chen Stopiky": "images/chen-stopiky.jpg",
+  "Amit Klinger": "images/amit-klinger.jpg",
+  "Amit Kanfer": "images/amit-kanfer.jpg",
+  "Daniel L": "images/daniel-l.jpg",
+  "Amit Ozer": "images/amit-ozer.jpg",
+  "Ariel Avitan": "images/ariel-avitan.jpg",
+  "Eitan": "images/eitan.jpg",
+  "Ofir": "images/ofir.jpg",
+  "Oded": "images/oded-austin.jpg"
 };
 
 const legacySampleNames = [
@@ -41,13 +56,16 @@ const legacySampleNames = [
   "Ronen"
 ];
 
+const PLAYER_GROUP_ORDER = ["Austin", "Israel"];
+
 const defaultPlayers = [
   ...defaultPlayerNames
 ].map((name) => ({
   id: crypto.randomUUID(),
   name,
   photo: defaultPlayerPhotos[name] || "",
-  playing: true
+  playing: false,
+  group: "Israel"
 }));
 
 let state = loadState();
@@ -66,6 +84,10 @@ let generatorAvailableIds = null;
 let generatorMustPlayIds = new Set();
 let generatedMatchSuggestions = [];
 let activeAdminTab = "leaderboard";
+let adminRosterMode = "Austin";
+let newPlayerGroupChoice = "Austin";
+let historyTournamentId = "current";
+const archiveCache = new Map();
 const failedPhotoUrls = new Set();
 
 const els = {
@@ -79,9 +101,10 @@ const els = {
   scoreStatus: document.querySelector("#score-status"),
   saveMatch: document.querySelector("#save-match"),
   flipScore: document.querySelector("#flip-score"),
-  generateOneGame: document.querySelector("#generate-one-game"),
-  generateTwoGames: document.querySelector("#generate-two-games"),
+  courtCountButtons: document.querySelectorAll("#court-count [data-games]"),
   generateRandomMatch: document.querySelector("#generate-random-match"),
+  generateSmartMatch: document.querySelector("#generate-smart-match"),
+  toggleAllPlayers: document.querySelector("#toggle-all-players"),
   availableCount: document.querySelector("#available-count"),
   generatorNote: document.querySelector("#generator-note"),
   availablePlayerGrid: document.querySelector("#available-player-grid"),
@@ -90,6 +113,7 @@ const els = {
   matchCount: document.querySelector("#match-count"),
   historyList: document.querySelector("#history-list"),
   historyCount: document.querySelector("#history-count"),
+  historySwitcher: document.querySelector("#history-switcher"),
   picker: document.querySelector("#player-picker"),
   pickerGrid: document.querySelector("#picker-grid"),
   pickerTitle: document.querySelector("#picker-title"),
@@ -106,6 +130,10 @@ const els = {
   adminPlayerStats: document.querySelector("#admin-player-stats"),
   adminPlayerGrid: document.querySelector("#admin-player-grid"),
   playingCount: document.querySelector("#playing-count"),
+  addPlayerForm: document.querySelector("#add-player-form"),
+  newPlayerName: document.querySelector("#new-player-name"),
+  newPlayerGroup: document.querySelector("#new-player-group"),
+  rosterMode: document.querySelector("#roster-mode"),
   adminMatchList: document.querySelector("#admin-match-list"),
   adminMatchCount: document.querySelector("#admin-match-count"),
   exportJson: document.querySelector("#export-json"),
@@ -206,7 +234,10 @@ function setSyncStatus(status, message) {
 }
 
 function remoteDocumentUrl(...segments) {
-  const tournamentId = firebaseOptions.tournamentId || "main";
+  return tournamentDocumentUrl(activeTournamentId, ...segments);
+}
+
+function tournamentDocumentUrl(tournamentId, ...segments) {
   const path = ["tournaments", tournamentId, ...segments].map(encodeURIComponent).join("/");
   return `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/${path}?key=${firebaseConfig.apiKey}`;
 }
@@ -432,7 +463,7 @@ async function pullRemoteState(options = {}) {
     });
     const remoteMatchIds = new Set(remoteState.matches.map((match) => match.id));
     const remoteSignature = JSON.stringify({
-      players: remoteState.players.map(({ id, name, photo, playing }) => ({ id, name, photo, playing })),
+      players: remoteState.players.map(({ id, name, photo, playing, group }) => ({ id, name, photo, playing, group })),
       matches: remoteState.matches
     });
     const unsyncedMatches = state.matches.filter((match) => pendingMatchIds.has(match.id) && !remoteMatchIds.has(match.id));
@@ -475,7 +506,8 @@ function hydrateBundledPhotos(players) {
   return players.map((player) => ({
     ...player,
     photo: defaultPlayerPhotos[player.name] || player.photo || "",
-    playing: typeof player.playing === "boolean" ? player.playing : true
+    playing: typeof player.playing === "boolean" ? player.playing : true,
+    group: player.group || "Israel"
   }));
 }
 
@@ -488,7 +520,8 @@ function syncBundledRoster(players) {
       id: crypto.randomUUID(),
       name,
       photo: defaultPlayerPhotos[name] || "",
-      playing: true
+      playing: false,
+      group: "Israel"
     }));
 
   return [...hydratedPlayers, ...missingPlayers];
@@ -509,12 +542,19 @@ function playerById(id) {
   return state.players.find((player) => player.id === id);
 }
 
-function playerName(id) {
-  return playerById(id)?.name || "Unknown";
+function playerName(id, roster) {
+  const players = Array.isArray(roster) ? roster : state.players;
+  return players.find((player) => player.id === id)?.name || "Unknown";
 }
 
 function firstName(name) {
   return name.split(/\s+/).filter(Boolean)[0] || name;
+}
+
+function shortName(player) {
+  const first = firstName(player.name);
+  const clash = state.players.some((other) => other.id !== player.id && firstName(other.name) === first);
+  return clash ? player.name : first;
 }
 
 function initials(name) {
@@ -581,7 +621,7 @@ function renderSlot(button) {
   button.classList.add("has-player");
   button.setAttribute("aria-label", player.name);
   text.className = "slot-player-name";
-  text.textContent = firstName(player.name);
+  text.textContent = shortName(player);
   button.append(avatar(player), text);
 }
 
@@ -617,11 +657,16 @@ function renderMatchGenerator() {
   const mustPlayCount = generatorMustPlayIds.size;
   const neededPlayers = generatorGameCount * 4;
 
-  els.generateOneGame.classList.toggle("is-active", generatorGameCount === 1);
-  els.generateTwoGames.classList.toggle("is-active", generatorGameCount === 2);
+  els.courtCountButtons.forEach((button) => {
+    button.classList.toggle("is-active", Number(button.dataset.games) === generatorGameCount);
+  });
   els.availableCount.textContent = `${selectedCount}/${availablePlayers.length} available`;
   els.generatorNote.textContent = generatorNoteText(selectedCount, neededPlayers, mustPlayCount);
   els.generateRandomMatch.disabled = selectedCount < neededPlayers || mustPlayCount > neededPlayers;
+  els.generateSmartMatch.disabled = els.generateRandomMatch.disabled;
+  const allSelected = availablePlayers.length > 0 && selectedCount === availablePlayers.length;
+  els.toggleAllPlayers.textContent = allSelected ? "Clear all" : "Select all";
+  els.toggleAllPlayers.disabled = !availablePlayers.length;
 
   els.availablePlayerGrid.replaceChildren(...availablePlayers.map((player) => {
     const button = document.createElement("button");
@@ -639,7 +684,7 @@ function renderMatchGenerator() {
     mustPlayToggle.setAttribute("aria-hidden", "true");
 
     const name = document.createElement("span");
-    name.textContent = firstName(player.name);
+    name.textContent = shortName(player);
     button.append(mustPlayToggle, avatar(player), name);
     button.addEventListener("click", () => toggleGeneratorPlayer(player.id));
     mustPlayToggle.addEventListener("click", (event) => {
@@ -657,7 +702,7 @@ function generatorNoteText(selectedCount, neededPlayers, mustPlayCount) {
     return `Unmark ${mustPlayCount - neededPlayers} must-play player${mustPlayCount - neededPlayers === 1 ? "" : "s"}.`;
   }
 
-  const courtText = generatorGameCount === 1 ? "1 court" : "2 courts";
+  const courtText = `${generatorGameCount} court${generatorGameCount === 1 ? "" : "s"}`;
   if (selectedCount < neededPlayers) {
     return `Select ${neededPlayers - selectedCount} more for ${courtText}.`;
   }
@@ -697,6 +742,20 @@ function toggleGeneratorMustPlay(playerId) {
 
 function setGeneratorGameCount(count) {
   generatorGameCount = count;
+  generatedMatchSuggestions = [];
+  renderMatchGenerator();
+}
+
+function toggleAllGeneratorPlayers() {
+  ensureGeneratorAvailableIds();
+  const activeIds = activePlayers().map((player) => player.id);
+  const allSelected = activeIds.length > 0 && generatorAvailableIds.size === activeIds.length;
+  if (allSelected) {
+    generatorAvailableIds = new Set();
+    generatorMustPlayIds = new Set();
+  } else {
+    generatorAvailableIds = new Set(activeIds);
+  }
   generatedMatchSuggestions = [];
   renderMatchGenerator();
 }
@@ -745,7 +804,7 @@ function renderGeneratedMatches() {
     actions.className = "generated-actions";
     actions.append(useButton);
 
-    if (generatedMatchSuggestions.length === 2) {
+    if (generatedMatchSuggestions.length >= 2) {
       const regenerateButton = document.createElement("button");
       regenerateButton.className = "ghost-button compact";
       regenerateButton.type = "button";
@@ -775,7 +834,7 @@ function generatedTeamBlock(label, team) {
     playerCard.className = "generated-player-card";
     if (player) {
       const name = document.createElement("strong");
-      name.textContent = firstName(player.name);
+      name.textContent = shortName(player);
       playerCard.append(avatar(player), name);
     } else {
       playerCard.textContent = "Unknown";
@@ -791,21 +850,24 @@ function generatedTeamBlock(label, team) {
   return block;
 }
 
-function generateRandomMatches() {
+function generatorSelectionReady(neededPlayers) {
   ensureGeneratorAvailableIds();
-  const availableIds = [...generatorAvailableIds];
-  const neededPlayers = generatorGameCount * 4;
-
-  if (availableIds.length < neededPlayers) {
+  if (generatorAvailableIds.size < neededPlayers) {
     toast(`Need ${neededPlayers} available players`);
-    return;
+    return false;
   }
   if (generatorMustPlayIds.size > neededPlayers) {
     toast("Too many must-play players");
-    return;
+    return false;
   }
+  return true;
+}
 
-  const selectedIds = choosePlayersForGeneratedMatches(availableIds, neededPlayers, [...generatorMustPlayIds]);
+function generateRandomMatches() {
+  const neededPlayers = generatorGameCount * 4;
+  if (!generatorSelectionReady(neededPlayers)) return;
+
+  const selectedIds = choosePlayersForGeneratedMatches([...generatorAvailableIds], neededPlayers, [...generatorMustPlayIds]);
   generatedMatchSuggestions = [];
   const remainingIds = selectedIds.slice();
 
@@ -815,6 +877,39 @@ function generateRandomMatches() {
   }
 
   renderGeneratedMatches();
+}
+
+function generateSmartMatches() {
+  const neededPlayers = generatorGameCount * 4;
+  if (!generatorSelectionReady(neededPlayers)) return;
+
+  const availableIds = [...generatorAvailableIds];
+  const requiredIds = [...generatorMustPlayIds];
+  let best = null;
+
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    const remainingIds = choosePlayersForGeneratedMatches(availableIds, neededPlayers, requiredIds).slice();
+    const courts = [];
+    let matchupScore = 0;
+    let pairScore = 0;
+
+    for (let court = 0; court < generatorGameCount; court += 1) {
+      const suggestion = bestRandomMatchForPlayers(remainingIds.splice(0, 4));
+      courts.push(suggestion);
+      matchupScore += suggestion.historyCount;
+      pairScore += pairHistoryCount(suggestion.teamA) + pairHistoryCount(suggestion.teamB);
+    }
+
+    const score = matchupScore * 1000 + pairScore;
+    if (!best || score < best.score) {
+      best = { courts, score, matchupScore };
+    }
+    if (best.score === 0) break;
+  }
+
+  generatedMatchSuggestions = best.courts;
+  renderGeneratedMatches();
+  toast(best.matchupScore === 0 ? "All matchups brand new" : "Fewest repeats possible");
 }
 
 function regenerateGeneratedCourt(index) {
@@ -946,35 +1041,109 @@ function shuffle(items) {
     .map(({ item }) => item);
 }
 
-function renderAdminRoster() {
-  els.adminPlayerGrid.replaceChildren();
-  const playingCount = state.players.filter((player) => player.playing).length;
-  els.playingCount.textContent = `${playingCount}/${state.players.length}`;
+function playerGroupName(player) {
+  return player.group || "Israel";
+}
 
-  state.players.forEach((player) => {
-    const card = document.createElement("button");
-    card.className = "admin-player-card";
-    card.classList.toggle("is-not-playing", !player.playing);
-    card.type = "button";
-    card.setAttribute("aria-pressed", String(player.playing));
+function rosterGroupNames() {
+  const discovered = state.players.map(playerGroupName).filter((groupName) => !PLAYER_GROUP_ORDER.includes(groupName));
+  return [...PLAYER_GROUP_ORDER, ...[...new Set(discovered)].sort()];
+}
 
-    const details = document.createElement("div");
-    const name = document.createElement("div");
-    name.className = "player-name";
-    name.textContent = firstName(player.name);
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = player.playing ? "Active" : "Inactive";
-    details.append(name, meta);
+function setRosterMode(mode) {
+  adminRosterMode = mode;
+  setNewPlayerGroupChoice(mode);
+  renderAdminRoster();
+}
 
-    const toggle = document.createElement("span");
-    toggle.className = "playing-toggle";
-    toggle.textContent = player.playing ? "Playing" : "Not playing";
-
-    card.append(avatar(player), details, toggle);
-    card.addEventListener("click", () => togglePlayerPlaying(player.id));
-    els.adminPlayerGrid.append(card);
+function setNewPlayerGroupChoice(group) {
+  newPlayerGroupChoice = group;
+  els.newPlayerGroup.querySelectorAll("button").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.group === group);
   });
+}
+
+function renderAdminRoster() {
+  const groupNames = rosterGroupNames();
+  if (!groupNames.includes(adminRosterMode)) {
+    adminRosterMode = groupNames[0];
+  }
+
+  els.rosterMode.replaceChildren(...groupNames.map((groupName) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = groupName;
+    button.classList.toggle("is-active", groupName === adminRosterMode);
+    button.addEventListener("click", () => setRosterMode(groupName));
+    return button;
+  }));
+
+  const groupPlayers = state.players.filter((player) => playerGroupName(player) === adminRosterMode);
+  const playingCount = groupPlayers.filter((player) => player.playing).length;
+  els.playingCount.textContent = `${playingCount}/${groupPlayers.length}`;
+
+  els.adminPlayerGrid.replaceChildren();
+  if (!groupPlayers.length) {
+    const empty = document.createElement("p");
+    empty.className = "roster-empty";
+    empty.textContent = `No ${adminRosterMode} players yet. Add the first one above.`;
+    els.adminPlayerGrid.append(empty);
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "admin-player-grid";
+  groupPlayers.forEach((player) => grid.append(adminPlayerCard(player)));
+  els.adminPlayerGrid.append(grid);
+}
+
+function adminPlayerCard(player) {
+  const card = document.createElement("button");
+  card.className = "admin-player-card";
+  card.classList.toggle("is-not-playing", !player.playing);
+  card.type = "button";
+  card.setAttribute("aria-pressed", String(player.playing));
+
+  const details = document.createElement("div");
+  const name = document.createElement("div");
+  name.className = "player-name";
+  name.textContent = shortName(player);
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  meta.textContent = player.playing ? "Active" : "Inactive";
+  details.append(name, meta);
+
+  const toggle = document.createElement("span");
+  toggle.className = "playing-toggle";
+  toggle.textContent = player.playing ? "Playing" : "Not playing";
+
+  card.append(avatar(player), details, toggle);
+  card.addEventListener("click", () => togglePlayerPlaying(player.id));
+  return card;
+}
+
+function addPlayer() {
+  const name = els.newPlayerName.value.trim();
+  if (!name) {
+    toast("Enter a player name");
+    return;
+  }
+  if (state.players.some((player) => player.name.toLowerCase() === name.toLowerCase())) {
+    toast("Player already exists");
+    return;
+  }
+
+  state.players.push({
+    id: crypto.randomUUID(),
+    name,
+    photo: defaultPlayerPhotos[name] || "",
+    playing: true,
+    group: newPlayerGroupChoice
+  });
+  els.newPlayerName.value = "";
+  savePlayersSharedState();
+  renderAll();
+  toast(`${name} added to ${newPlayerGroupChoice}`);
 }
 
 function togglePlayerPlaying(playerId) {
@@ -1014,7 +1183,7 @@ function renderPicker() {
     const details = document.createElement("span");
     const name = document.createElement("span");
     name.className = "picker-name";
-    name.textContent = firstName(player.name);
+    name.textContent = shortName(player);
     const meta = document.createElement("span");
     meta.className = "picker-state";
     meta.textContent = button.disabled ? "Selected" : "";
@@ -1034,22 +1203,121 @@ function renderPicker() {
 function renderMatches() {
   els.matchList.replaceChildren();
   els.matchCount.textContent = state.matches.length;
-  els.historyList.replaceChildren();
-  els.historyCount.textContent = state.matches.length;
 
   if (!state.matches.length) {
     els.matchList.append(emptyMatchItem("No matches yet."));
-    els.historyList.append(emptyMatchItem("No games saved yet."));
+  } else {
+    state.matches.slice(-10).reverse().forEach((match) => {
+      els.matchList.append(matchItem(match));
+    });
+  }
+
+  renderHistory();
+}
+
+function archivedTournaments() {
+  if (!hasFirebaseConfig()) return [];
+  return Array.isArray(firebaseOptions.archivedTournaments) ? firebaseOptions.archivedTournaments : [];
+}
+
+function renderHistorySwitcher() {
+  const archives = archivedTournaments();
+  els.historySwitcher.hidden = !archives.length;
+  if (!archives.length) {
+    historyTournamentId = "current";
     return;
   }
 
-  const orderedMatches = state.matches.slice().reverse();
-  orderedMatches.slice(0, 10).forEach((match) => {
-    els.matchList.append(matchItem(match));
+  const options = [{ id: "current", name: "Current" }, ...archives];
+  if (!options.some((option) => option.id === historyTournamentId)) {
+    historyTournamentId = "current";
+  }
+
+  els.historySwitcher.replaceChildren(...options.map((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.toggle("is-active", option.id === historyTournamentId);
+    button.textContent = option.name;
+    button.addEventListener("click", () => selectHistoryTournament(option.id));
+    return button;
+  }));
+}
+
+function selectHistoryTournament(tournamentId) {
+  if (archiveCache.get(tournamentId)?.status === "error") {
+    archiveCache.delete(tournamentId);
+  }
+  historyTournamentId = tournamentId;
+  renderHistory();
+}
+
+function renderHistory() {
+  renderHistorySwitcher();
+  const archive = archivedTournaments().find((item) => item.id === historyTournamentId);
+  if (!archive) {
+    renderHistoryList(state.matches, state.players, "No games saved yet.");
+    return;
+  }
+
+  const cached = archiveCache.get(archive.id);
+  if (cached?.status === "ready") {
+    renderHistoryList(cached.matches, cached.players, `No games saved in ${archive.name}.`);
+    return;
+  }
+
+  els.historyList.replaceChildren();
+  if (cached?.status === "error") {
+    els.historyCount.textContent = "0";
+    els.historyList.append(emptyMatchItem(`Could not load ${archive.name}. Tap its tab to retry.`));
+    return;
+  }
+
+  els.historyCount.textContent = "…";
+  els.historyList.append(emptyMatchItem(`Loading ${archive.name}…`));
+  loadArchive(archive);
+}
+
+function renderHistoryList(matches, roster, emptyMessage) {
+  els.historyCount.textContent = matches.length;
+  els.historyList.replaceChildren();
+
+  if (!matches.length) {
+    els.historyList.append(emptyMatchItem(emptyMessage));
+    return;
+  }
+
+  matches.slice().reverse().forEach((match, index) => {
+    els.historyList.append(historyItem(match, matches.length - index, roster));
   });
-  orderedMatches.forEach((match, index) => {
-    els.historyList.append(historyItem(match, state.matches.length - index));
-  });
+}
+
+async function loadArchive(archive) {
+  if (archiveCache.get(archive.id)?.status === "loading") return;
+
+  archiveCache.set(archive.id, { status: "loading" });
+  try {
+    const [tournamentDocument, matchesDocument] = await Promise.all([
+      remoteRequest(tournamentDocumentUrl(archive.id)),
+      remoteRequest(`${tournamentDocumentUrl(archive.id, "matches")}&pageSize=300`)
+    ]);
+    const tournamentData = fromFirestoreDocument(tournamentDocument);
+    const matches = (matchesDocument?.documents || [])
+      .map(fromFirestoreDocument)
+      .filter((match) => match.id)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    archiveCache.set(archive.id, {
+      status: "ready",
+      players: Array.isArray(tournamentData.players) ? tournamentData.players : [],
+      matches
+    });
+  } catch (error) {
+    console.error(`Could not load archived tournament "${archive.id}"`, error);
+    archiveCache.set(archive.id, { status: "error" });
+  }
+
+  if (historyTournamentId === archive.id) {
+    renderHistory();
+  }
 }
 
 function emptyMatchItem(message) {
@@ -1075,7 +1343,7 @@ function matchItem(match) {
   return item;
 }
 
-function historyItem(match, gameNumber) {
+function historyItem(match, gameNumber, roster) {
   const item = document.createElement("li");
   item.className = "history-item";
   const button = document.createElement("button");
@@ -1083,21 +1351,21 @@ function historyItem(match, gameNumber) {
   button.type = "button";
   button.innerHTML = `
     <span class="history-game-number">#${gameNumber}</span>
-    <span class="history-matchup">${matchLabel(match)}</span>
+    <span class="history-matchup">${matchLabel(match, roster)}</span>
     <span class="history-row-score">${match.scoreA}-${match.scoreB}</span>
-    <span class="history-row-winner">${matchWinnerLabel(match)}</span>
+    <span class="history-row-winner">${matchWinnerLabel(match, roster)}</span>
   `;
-  button.addEventListener("click", () => openGameDetail(match, gameNumber));
+  button.addEventListener("click", () => openGameDetail(match, gameNumber, roster));
   item.append(button);
   return item;
 }
 
-function matchWinnerLabel(match) {
+function matchWinnerLabel(match, roster) {
   if (match.scoreA === match.scoreB) return "Draw";
-  return match.scoreA > match.scoreB ? `${teamLabel(match.teamA)} won` : `${teamLabel(match.teamB)} won`;
+  return match.scoreA > match.scoreB ? `${teamLabel(match.teamA, roster)} won` : `${teamLabel(match.teamB, roster)} won`;
 }
 
-function openGameDetail(match, gameNumber) {
+function openGameDetail(match, gameNumber, roster) {
   els.gameDetailTitle.textContent = `Game ${gameNumber}`;
   els.gameDetailBody.innerHTML = `
     <dl>
@@ -1107,11 +1375,11 @@ function openGameDetail(match, gameNumber) {
       </div>
       <div>
         <dt>Team A</dt>
-        <dd>${teamLabel(match.teamA)}</dd>
+        <dd>${teamLabel(match.teamA, roster)}</dd>
       </div>
       <div>
         <dt>Team B</dt>
-        <dd>${teamLabel(match.teamB)}</dd>
+        <dd>${teamLabel(match.teamB, roster)}</dd>
       </div>
       <div>
         <dt>Score</dt>
@@ -1119,19 +1387,19 @@ function openGameDetail(match, gameNumber) {
       </div>
       <div>
         <dt>Result</dt>
-        <dd>${matchWinnerLabel(match)}</dd>
+        <dd>${matchWinnerLabel(match, roster)}</dd>
       </div>
     </dl>
   `;
   els.gameDetail.showModal();
 }
 
-function matchLabel(match) {
-  return `${teamLabel(match.teamA)} vs ${teamLabel(match.teamB)}`;
+function matchLabel(match, roster) {
+  return `${teamLabel(match.teamA, roster)} vs ${teamLabel(match.teamB, roster)}`;
 }
 
-function teamLabel(team) {
-  return `${playerName(team[0])} & ${playerName(team[1])}`;
+function teamLabel(team, roster) {
+  return `${playerName(team[0], roster)} & ${playerName(team[1], roster)}`;
 }
 
 function formatDate(value) {
@@ -1865,9 +2133,12 @@ document.querySelectorAll(".score-presets button").forEach((button) => {
 });
 els.flipScore.addEventListener("click", flipScore);
 els.saveMatch.addEventListener("click", saveMatch);
-els.generateOneGame.addEventListener("click", () => setGeneratorGameCount(1));
-els.generateTwoGames.addEventListener("click", () => setGeneratorGameCount(2));
+els.courtCountButtons.forEach((button) => {
+  button.addEventListener("click", () => setGeneratorGameCount(Number(button.dataset.games)));
+});
 els.generateRandomMatch.addEventListener("click", generateRandomMatches);
+els.generateSmartMatch.addEventListener("click", generateSmartMatches);
+els.toggleAllPlayers.addEventListener("click", toggleAllGeneratorPlayers);
 
 els.unlockForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1876,6 +2147,15 @@ els.unlockForm.addEventListener("submit", (event) => {
   } else {
     toast("Wrong passcode");
   }
+});
+
+els.addPlayerForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  addPlayer();
+});
+
+els.newPlayerGroup.querySelectorAll("button").forEach((button) => {
+  button.addEventListener("click", () => setNewPlayerGroupChoice(button.dataset.group));
 });
 
 let titleTapCount = 0;
