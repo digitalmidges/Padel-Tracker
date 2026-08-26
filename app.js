@@ -1091,6 +1091,7 @@ function setRosterMode(mode) {
   adminRosterMode = mode;
   setNewPlayerGroupChoice(mode);
   renderAdminRoster();
+  renderPlayerBreakdown(...playerBreakdownData());
 }
 
 function setNewPlayerGroupChoice(group) {
@@ -1544,6 +1545,7 @@ function stats() {
       id: player.id,
       name: player.name,
       playing: player.playing,
+      group: playerGroupName(player),
       games: 0,
       wins: 0,
       draws: 0,
@@ -1777,9 +1779,24 @@ function renderAwards(awards) {
   });
 }
 
+function playerBreakdownData() {
+  const { rankedPlayers, rankedPairs } = stats();
+  return [rankedPlayers, rankedPairs];
+}
+
 function renderPlayerBreakdown(rankedPlayers, rankedPairs) {
   els.adminPlayerStats.replaceChildren();
-  rankedPlayers.forEach((player, index) => {
+  const groupPlayers = rankedPlayers.filter((player) => player.group === adminRosterMode);
+
+  if (!groupPlayers.length) {
+    const empty = document.createElement("p");
+    empty.className = "roster-empty";
+    empty.textContent = `No ${adminRosterMode} player stats yet.`;
+    els.adminPlayerStats.append(empty);
+    return;
+  }
+
+  groupPlayers.forEach((player, index) => {
     const bestPair = rankedPairs
       .filter((pair) => pair.games > 0 && pair.ids.includes(player.id))
       .sort((a, b) => b.diff - a.diff || b.winRate - a.winRate)[0];
